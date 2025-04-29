@@ -1,5 +1,5 @@
 (cram
- (package hp_ast_test)
+ (package HeaplangToLLVM)
  (deps
   %{bin:HeaplangToLLVM}
   (:hl
