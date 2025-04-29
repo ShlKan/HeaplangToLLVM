@@ -1,0 +1,6 @@
+(cram
+ (package hp_ast_test)
+ (deps
+  %{bin:HeaplangToLLVM}
+  (:hl
+   (glob_files simple1.hl))))

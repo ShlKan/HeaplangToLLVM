@@ -1,5 +1,7 @@
 (lang dune 3.17)
 
+(cram enable)
+
 (name HeaplangToLLVM)
 
 (generate_opam_files true)
