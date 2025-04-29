@@ -1,0 +1,15 @@
+(library
+ (name heaplang)
+ (libraries menhirLib))
+
+(menhir
+ (modules hp_parser)
+ (flags --explain))
+
+(ocamllex
+ (modules hp_lexer))
+
+(env
+ (dev
+  (flags
+   (:standard -warn-error -A))))
