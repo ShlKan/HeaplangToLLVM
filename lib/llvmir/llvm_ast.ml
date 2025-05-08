@@ -26,7 +26,7 @@ type instruction =
   | Load of operand * typ
   | Store of operand * operand * typ
   | Alloca of string * typ
-  | Call of string option * string * operand list * typ
+  | Call of string option * string * (operand * typ) list * typ
   | Ret of operand option
   | Br of string
   | CondBr of operand * string * string
@@ -63,13 +63,16 @@ let rec typ_to_string = function
       "pair(" ^ typ_to_string t1 ^ ", " ^ typ_to_string t2 ^ ")"
 
 let operand_to_string = function
-  | ConstVoid -> "void"
+  | ConstVoid -> "void ()"
   | ConstInt i -> string_of_int i
   | ConstFloat f -> string_of_float f
   | ConstLoc l -> "loc(" ^ string_of_int l ^ ")"
   | ConstString s -> "\"" ^ s ^ "\""
   | GlobalVar name -> "@" ^ name
   | LocalVar name -> "%" ^ name
+
+let arg_to_string arg =
+  match arg with op, typ -> typ_to_string typ ^ " " ^ operand_to_string op
 
 let binop_to_string = function
   | Add -> "add"
@@ -89,18 +92,18 @@ let rec instruction_to_string = function
       name ^ " = " ^ binop_to_string op ^ " " ^ typ_to_string typ ^ " "
       ^ operand_to_string lhs ^ ", " ^ operand_to_string rhs
   | Load (op, typ) ->
-      "load " ^ typ_to_string typ ^ ", " ^ operand_to_string op
+      "load " ^ typ_to_string typ ^ ", " ^ arg_to_string (op, typ)
   | Store (src, dst, typ) ->
       "store " ^ typ_to_string typ ^ " " ^ operand_to_string src ^ ", "
       ^ operand_to_string dst
   | Alloca (name, typ) -> name ^ " = alloca " ^ typ_to_string typ
   | Call (None, name, args, typ) ->
       "call " ^ typ_to_string typ ^ " @" ^ name ^ "("
-      ^ String.concat ", " (List.map operand_to_string args)
+      ^ String.concat ", " (List.map arg_to_string args)
       ^ ")"
   | Call (Some varName, name, args, typ) ->
       varName ^ " = call " ^ typ_to_string typ ^ " @" ^ name ^ "("
-      ^ String.concat ", " (List.map operand_to_string args)
+      ^ String.concat ", " (List.map arg_to_string args)
       ^ ")"
   | Ret None -> "ret void"
   | Ret (Some op) -> "ret " ^ operand_to_string op

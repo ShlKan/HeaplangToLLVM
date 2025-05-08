@@ -39,7 +39,7 @@ let rec translate exp =
       | AllocN (sz, value) ->
           let operand = translateExpr sz in
           let valu = translateExpr value in
-          Call (Some ("%" ^ varName), "malloc", [operand], typ)
+          Call (Some ("%" ^ varName), "malloc", [(operand, Int 64)], typ)
           :: GetElementPtr
                ( "%" ^ varName ^ "_index_1"
                , LocalVar varName
