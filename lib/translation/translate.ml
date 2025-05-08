@@ -29,23 +29,24 @@ let rec translate exp =
       | Val (LitV (LitInt _)) ->
           let operand = translateExpr e1 in
           Alloca ("%" ^ varName, typ)
-          :: Store (LocalVar varName, operand, typ)
+          :: Store (operand, decide_ty e1, LocalVar varName, Pointer typ)
           :: translate e2
       | BinOp _ as bop ->
           let operand = translateExpr bop in
           Alloca (varName, typ)
-          :: Store (LocalVar varName, operand, typ)
+          :: Store (operand, decide_ty bop, LocalVar varName, typ)
           :: translate e2
       | AllocN (sz, value) ->
           let operand = translateExpr sz in
           let valu = translateExpr value in
+          let typ1 = decide_ty value in
           Call (Some ("%" ^ varName), "malloc", [(operand, Int 64)], typ)
           :: GetElementPtr
                ( "%" ^ varName ^ "_index_1"
                , LocalVar varName
                , [IndexConst 0]
                , typ )
-          :: Store (LocalVar (varName ^ "_index_1"), valu, typ)
+          :: Store (valu, typ1, LocalVar (varName ^ "_index_1"), typ)
           :: translate e2
       | _ -> failwith "Translation not implemented for this expression" )
   | Var v -> [Ret (Some (LocalVar v))]

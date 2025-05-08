@@ -24,7 +24,7 @@ type gep_index = IndexConst of int | IndexVar of operand
 type instruction =
   | BinOp of string * binop * operand * operand * typ
   | Load of operand * typ
-  | Store of operand * operand * typ
+  | Store of operand * typ * operand * typ
   | Alloca of string * typ
   | Call of string option * string * (operand * typ) list * typ
   | Ret of operand option
@@ -93,9 +93,9 @@ let rec instruction_to_string = function
       ^ operand_to_string lhs ^ ", " ^ operand_to_string rhs
   | Load (op, typ) ->
       "load " ^ typ_to_string typ ^ ", " ^ arg_to_string (op, typ)
-  | Store (src, dst, typ) ->
-      "store " ^ typ_to_string typ ^ " " ^ operand_to_string src ^ ", "
-      ^ operand_to_string dst
+  | Store (src, typ1, dst, typ) ->
+      "store " ^ typ_to_string typ1 ^ " " ^ operand_to_string src ^ ", "
+      ^ typ_to_string typ ^ " " ^ operand_to_string dst
   | Alloca (name, typ) -> name ^ " = alloca " ^ typ_to_string typ
   | Call (None, name, args, typ) ->
       "call " ^ typ_to_string typ ^ " @" ^ name ^ "("
