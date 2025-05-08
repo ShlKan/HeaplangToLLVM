@@ -16,7 +16,7 @@ let () =
       | "--llvm" ->
           let expr = Hp_read.hp_read filename in
           let llvm_ast = Translate.translate expr in
-          Format.printf "LLVM:\n %s"
+          Format.printf "LLVM:\n%s"
             (Llvm_ast.instructions_to_string llvm_ast)
       | _ -> Printf.eprintf "Unknown mode: %s. Use --ast or --llvm.\n" mode
     with

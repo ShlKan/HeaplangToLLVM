@@ -18,6 +18,7 @@ rule read = parse
   | "then"                { THEN }
   | "else"                { ELSE }
   | "let:"                { LET }
+  | "ref"                 { REF }
   | "in"                  { IN }
   | "λ" | "fun"           { LAMBDA }
   | "="                   { EQ }

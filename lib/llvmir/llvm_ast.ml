@@ -26,7 +26,7 @@ type instruction =
   | Load of operand * typ
   | Store of operand * operand * typ
   | Alloca of string * typ
-  | Call of string * operand list * typ
+  | Call of string option * string * operand list * typ
   | Ret of operand option
   | Br of string
   | CondBr of operand * string * string
@@ -94,8 +94,12 @@ let rec instruction_to_string = function
       "store " ^ typ_to_string typ ^ " " ^ operand_to_string src ^ ", "
       ^ operand_to_string dst
   | Alloca (name, typ) -> name ^ " = alloca " ^ typ_to_string typ
-  | Call (name, args, typ) ->
+  | Call (None, name, args, typ) ->
       "call " ^ typ_to_string typ ^ " @" ^ name ^ "("
+      ^ String.concat ", " (List.map operand_to_string args)
+      ^ ")"
+  | Call (Some varName, name, args, typ) ->
+      varName ^ " = call " ^ typ_to_string typ ^ " @" ^ name ^ "("
       ^ String.concat ", " (List.map operand_to_string args)
       ^ ")"
   | Ret None -> "ret void"
