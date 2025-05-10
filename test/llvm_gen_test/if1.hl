@@ -1,4 +1,4 @@
 Definition f : val :=
 rec: f :=
 let: "x" = #1 in
-let: "y" = "x" in "y"
+if: "x" then #1 else #2

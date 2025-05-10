@@ -106,7 +106,6 @@ The function `f` allows us not to bound the type of key to `positive` values as 
 
 Definition map_set : val :=
   rec: "map_set" "m" "f" "base" "left" "right" "key" "v" "fv" :=
-    
       let: "m'" :=
         if: "m" = #() then
           ref (#(), (NONEV, #()))

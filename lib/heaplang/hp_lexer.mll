@@ -14,11 +14,14 @@ rule read = parse
   | "true"                { TRUE }
   | "false"               { FALSE }
   | "()"                  { UNIT }
-  | "if"                  { IF }
+  | "if:"                  { IF }
   | "then"                { THEN }
   | "else"                { ELSE }
   | "let:"                { LET }
   | "ref"                 { REF }
+  | "Definition"          { DEFINITION }
+  | "val"                 { VAL }
+  | "rec:"                 { REC }
   | "in"                  { IN }
   | "λ" | "fun"           { LAMBDA }
   | "="                   { EQ }
@@ -32,6 +35,7 @@ rule read = parse
   | "."                   { DOT }
   | "("                   { LPAREN }
   | ")"                   { RPAREN }
+  | ":"                   { COLON }
   | "#" (digit as i)        { INT (int_of_string i) }
   | ident as id           { IDENT id }
   | eof                   { EOF }

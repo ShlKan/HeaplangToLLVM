@@ -15,9 +15,8 @@ let () =
           Format.printf "AST:\n %s" (Hp_ast.ast_to_string expr)
       | "--llvm" ->
           let expr = Hp_read.hp_read filename in
-          let llvm_ast = Translate.translate expr in
-          Format.printf "LLVM:\n%s"
-            (Llvm_ast.instructions_to_string llvm_ast)
+          let llvm_ast = Translate.translateGlobal expr in
+          Format.printf "LLVM:\n%s" (Llvm_ast.func_to_string llvm_ast)
       | _ -> Printf.eprintf "Unknown mode: %s. Use --ast or --llvm.\n" mode
     with
     | Failure msg -> prerr_endline ("Error: " ^ msg)

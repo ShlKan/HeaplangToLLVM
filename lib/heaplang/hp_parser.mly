@@ -1,12 +1,24 @@
 %{
 open Hp_ast
+
+let gen_rec fname ids expr =
+  let rec aux ids =
+    match ids with
+    | [] -> Rec (BAnon, BAnon, expr)
+    | id :: rest -> Rec (BAnon, BAnon, aux ids)
+  in
+  match ids with
+  | [] ->  Rec (fname, BAnon, expr)
+  | [ id ] -> Rec (fname, BNamed id, expr)
+  | id :: ids -> Rec (fname, BNamed id, aux ids)
+
 %}
 
 %token <int> INT
 %token <string> IDENT
 %token TRUE FALSE UNIT
 %token IF THEN ELSE
-%token LET IN
+%token LET IN REC VAL DEFINITION COLON
 %token LAMBDA REF
 %token PLUS MINUS TIMES DIV
 %token EQ LT AND OR
@@ -51,6 +63,11 @@ stmt_expr:
   | LET IDENT EQ expr IN expr %prec LOW_PRECEDENCE      { Let(Var $2, $4, $6) }
   | IF expr THEN expr ELSE expr %prec LOW_PRECEDENCE    { If($2, $4, $6) }
   | LAMBDA IDENT DOT expr  %prec LOW_PRECEDENCE        { Rec(BAnon, BNamed $2, $4) }
+  | DEFINITION IDENT COLON VAL COLON EQ REC idents COLON EQ expr %prec LOW_PRECEDENCE { gen_rec (BNamed $2) $8 $11 }
+
+idents:
+  | IDENT                          { [ $1 ] }
+  | idents IDENT             { $2 :: $1 }
 
 atom:
   | IDENT                          { Var($1) }

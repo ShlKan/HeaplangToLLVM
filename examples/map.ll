@@ -25,7 +25,7 @@ declare i8* @malloc(i64)
 
 ; Function declaration for map_get
 define %opt_pair @map_get(%triple* %l, i32 %key, %fn_type* %f) {
-    %cmp = icmp eq %triple* %l, null    
+    %cmp = icmp eq %triple* %l, null
     br i1 %cmp, label %if_null, label %if_not_null
 
 if_null:
@@ -39,7 +39,7 @@ if_not_null:
 key_zero:
     %data = getelementptr %triple, %triple* %l, i32 0, i32 1
     %data_i32 = load i32, i32* %data
-    %pair_val = insertvalue %opt_pair undef, i1 1, 0  
+    %pair_val = insertvalue %opt_pair undef, i1 1, 0
     %pair_val1 = insertvalue %opt_pair %pair_val, i32 %data_i32, 1
     ret %opt_pair %pair_val1
 
