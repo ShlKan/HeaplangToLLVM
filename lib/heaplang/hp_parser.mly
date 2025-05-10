@@ -22,7 +22,7 @@ let gen_rec fname ids expr =
 %token LAMBDA REF
 %token PLUS MINUS TIMES DIV
 %token EQ LT AND OR
-%token LPAREN RPAREN DOT
+%token LPAREN RPAREN DOT COMMA
 %token EOF
 
 %left OR
@@ -75,4 +75,5 @@ atom:
   | TRUE                           { Val (LitV (LitBool true)) }
   | FALSE                          { Val (LitV (LitBool false)) }
   | UNIT                           { Val (LitV LitUnit) }
+  | LPAREN expr COMMA expr RPAREN  { Pair($2, $4) }
   | LPAREN expr RPAREN             { $2 }

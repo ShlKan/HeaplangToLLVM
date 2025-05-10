@@ -1,0 +1,3 @@
+Definition f : val :=
+rec: f :=
+let: "x" = ref (#1, #2) in "x"

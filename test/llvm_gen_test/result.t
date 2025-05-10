@@ -31,3 +31,16 @@
   else:
     ret 2
   }
+
+  $ HeaplangToLLVM --llvm pair1.hl
+  LLVM:
+  define i32 @f(i32 %f) {
+  entry:
+    %x = alloca pair(i32, i32)
+    %x_fst = insertvalue pair(i32, i32) undef, 1, 0
+    %x_snd = insertvalue pair(i32, i32) %x, 2, 1
+    %x = call pair(i32, i32)* @malloc(i64 1)
+    %x_index_1 = getelementptr pair(i32, i32)*, %x_snd, 0
+    store pair(i32, i32) %x_snd, pair(i32, i32)* %x_index_1
+    ret %x
+  }

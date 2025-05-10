@@ -20,6 +20,10 @@ let rec decide_ty e =
   | AllocN (_sz, expr) ->
       let typ = decide_ty expr in
       Pointer typ
+  | Pair (v1, v2) ->
+      let typ1 = decide_ty v1 in
+      let typ2 = decide_ty v2 in
+      Pair (typ1, typ2)
   | _ -> failwith "Type not supported in translation"
 
 let var_name = function Var v -> v | _ -> failwith "Expected a variable"
@@ -63,6 +67,59 @@ and translateBlock exp blks curr_blk =
               ; Store (operand, decide_ty bop, LocalVar varName, typ) ]
           in
           translateBlock e2 blks curr_blk1
+      | Pair (v1, v2) ->
+          let operand1 = translateExpr v1 in
+          let operand2 = translateExpr v2 in
+          let curr_blk1 =
+            extend_blk curr_blk
+              [ Alloca (varName, typ)
+              ; InsertValue (varName ^ "_fst", Undef, operand1, 0, typ)
+              ; InsertValue (varName, LocalVar varName, operand2, 1, typ) ]
+          in
+          translateBlock e2 blks curr_blk1
+      | Val (PairV (v1, v2)) ->
+          let operand1 = translateVal v1 in
+          let operand2 = translateVal v2 in
+          let curr_blk1 =
+            extend_blk curr_blk
+              [ Alloca (varName, typ)
+              ; InsertValue (varName ^ "_fst", Undef, operand1, 0, typ)
+              ; InsertValue (varName, LocalVar varName, operand2, 1, typ) ]
+          in
+          translateBlock e2 blks curr_blk1
+      | AllocN (sz, Pair (v1, v2)) ->
+          (* Currently, the translation supports only sz == 1. *)
+          let operand = translateExpr sz in
+          let typ1 = decide_ty (Pair (v1, v2)) in
+          let operand1 = translateExpr v1 in
+          let operand2 = translateExpr v2 in
+          let curr_blk1 =
+            extend_blk curr_blk
+              [ Alloca ("%" ^ varName, typ1)
+              ; InsertValue ("%" ^ varName ^ "_fst", Undef, operand1, 0, typ1)
+              ; InsertValue
+                  ( "%" ^ varName ^ "_snd"
+                  , LocalVar varName
+                  , operand2
+                  , 1
+                  , typ1 ) ]
+          in
+          let curr_blk2 =
+            extend_blk curr_blk1
+              [ Call
+                  (Some ("%" ^ varName), "malloc", [(operand, Int 64)], typ)
+              ; GetElementPtr
+                  ( "%" ^ varName ^ "_index_1"
+                  , LocalVar (varName ^ "_snd")
+                  , [IndexConst 0]
+                  , typ )
+              ; Store
+                  ( LocalVar (varName ^ "_snd")
+                  , typ1
+                  , LocalVar (varName ^ "_index_1")
+                  , typ ) ]
+          in
+          translateBlock e2 blks curr_blk2
       | AllocN (sz, value) ->
           (* Currently, the translation supports only sz == 1. *)
           let operand = translateExpr sz in

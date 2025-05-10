@@ -16,6 +16,7 @@ type operand =
   | ConstString of string
   | GlobalVar of string
   | LocalVar of string
+  | Undef
 
 type binop = Add | Sub | Mul | Div | And | Or | Xor
 
@@ -35,7 +36,11 @@ type instruction =
       string * operand * gep_index list * typ (* GEP instruction *)
   | ExtractValue of operand * int * typ (* Extract from a pair or struct *)
   | InsertValue of
-      operand * operand * int * typ (* Insert into a pair or struct *)
+      string
+      * operand
+      * operand
+      * int
+      * typ (* Insert into a pair or struct *)
   | Assert of
       operand * string (* Assertion with a condition and error message *)
 
@@ -70,6 +75,7 @@ let operand_to_string = function
   | ConstString s -> "\"" ^ s ^ "\""
   | GlobalVar name -> "@" ^ name
   | LocalVar name -> "%" ^ name
+  | Undef -> "undef"
 
 let arg_to_string arg =
   match arg with op, typ -> typ_to_string typ ^ " " ^ operand_to_string op
@@ -125,9 +131,10 @@ let rec instruction_to_string = function
   | ExtractValue (op, idx, typ) ->
       "extractvalue " ^ typ_to_string typ ^ " " ^ operand_to_string op ^ ", "
       ^ string_of_int idx
-  | InsertValue (agg, val_op, idx, typ) ->
-      "insertvalue " ^ typ_to_string typ ^ " " ^ operand_to_string agg ^ ", "
-      ^ operand_to_string val_op ^ ", " ^ string_of_int idx
+  | InsertValue (name, agg, val_op, idx, typ) ->
+      name ^ " = insertvalue " ^ typ_to_string typ ^ " "
+      ^ operand_to_string agg ^ ", " ^ operand_to_string val_op ^ ", "
+      ^ string_of_int idx
   | Assert (cond, msg) ->
       "assert " ^ operand_to_string cond ^ " \"" ^ msg ^ "\""
 

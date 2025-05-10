@@ -33,6 +33,7 @@ rule read = parse
   | "*"                   { TIMES }
   | "/"                   { DIV }
   | "."                   { DOT }
+  | ","                   { COMMA }
   | "("                   { LPAREN }
   | ")"                   { RPAREN }
   | ":"                   { COLON }
