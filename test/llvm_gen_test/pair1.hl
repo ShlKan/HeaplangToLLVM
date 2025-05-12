@@ -1,3 +1,5 @@
-Definition f : val :=
-rec: f :=
-let: "x" = ref (#1, #2) in "x"
+Definition f : val (* int, int *) :=
+rec: "f" "z" :=
+let: "x" = ref (#1, "z") in
+let: "y" = (#12, "x") in 
+"y"

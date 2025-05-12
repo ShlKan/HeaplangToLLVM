@@ -23,7 +23,30 @@ type base_lit =
   | LitPoison
   | LitLoc of int
 
-type binder = BAnon | BNamed of string
+(* Heaplang itself is not explicitly typed. In order to generate LLVM IR, we
+   need instantiate the function signature with types. *)
+type htyp =
+  | TUnit
+  | TBool
+  | TInt
+  | TLoc
+  | TFun of htyp list
+  | TPair of (htyp * htyp)
+
+let rec htyp_to_string = function
+  | TUnit -> "unit"
+  | TBool -> "bool"
+  | TInt -> "int"
+  | TLoc -> "loc"
+  | TFun args ->
+      "fun(" ^ String.concat ", " (List.map htyp_to_string args) ^ ")"
+  | TPair (t1, t2) ->
+      "(" ^ htyp_to_string t1 ^ " * " ^ htyp_to_string t2 ^ ")"
+
+let htyp_list_to_string htyp_list =
+  "[" ^ String.concat "; " (List.map htyp_to_string htyp_list) ^ "]"
+
+type binder = BAnon | BNamed of string | BTyped of (string * htyp)
 
 type value =
   | LitV of base_lit
@@ -34,7 +57,7 @@ type value =
 type expr =
   | Val of value
   | Var of string
-  | Rec of (binder * binder * expr)
+  | Rec of (binder * binder * expr * htyp)
   | App of (expr * expr)
   | UnOp of (un_op * expr)
   | BinOp of (bin_op * expr * expr)
@@ -68,10 +91,12 @@ let rec ast_to_string = function
   | Val (InjLV v) -> "inl(" ^ ast_to_string (Val v) ^ ")"
   | Val (InjRV v) -> "inr(" ^ ast_to_string (Val v) ^ ")"
   | Var v -> v
-  | Rec (BAnon, BAnon, body) -> "rec _ -> " ^ ast_to_string body
-  | Rec (BAnon, BNamed f, body) -> "rec " ^ f ^ " -> " ^ ast_to_string body
-  | Rec (BNamed x, BNamed f, body) ->
-      "rec " ^ x ^ "." ^ f ^ " -> " ^ ast_to_string body
+  | Rec (BAnon, BAnon, body, typ) ->
+      "rec _ : _ " ^ "->" ^ htyp_to_string typ ^ ast_to_string body
+  | Rec (BAnon, BNamed f, body, typ) ->
+      "rec _ : " ^ f ^ " -> " ^ htyp_to_string typ ^ ast_to_string body
+  | Rec (BNamed x, BNamed f, body, typ) ->
+      "rec " ^ x ^ " : " ^ f ^ "->" ^ htyp_to_string typ ^ ast_to_string body
   | App (e1, e2) -> "(" ^ ast_to_string e1 ^ " " ^ ast_to_string e2 ^ ")"
   | UnOp (op, e) ->
       "unop(" ^ un_op_to_string op ^ ", " ^ ast_to_string e ^ ")"

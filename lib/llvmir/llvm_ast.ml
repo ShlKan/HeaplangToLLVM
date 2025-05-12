@@ -34,7 +34,8 @@ type instruction =
   | Phi of (operand * string) list * typ
   | GetElementPtr of
       string * operand * gep_index list * typ (* GEP instruction *)
-  | ExtractValue of operand * int * typ (* Extract from a pair or struct *)
+  | ExtractValue of
+      string * operand * int * typ (* Extract from a pair or struct *)
   | InsertValue of
       string
       * operand
@@ -128,9 +129,9 @@ let rec instruction_to_string = function
       name ^ " = getelementptr " ^ typ_to_string typ ^ ", "
       ^ operand_to_string base ^ ", "
       ^ String.concat ", " (List.map gep_index_to_string indices)
-  | ExtractValue (op, idx, typ) ->
-      "extractvalue " ^ typ_to_string typ ^ " " ^ operand_to_string op ^ ", "
-      ^ string_of_int idx
+  | ExtractValue (name, op, idx, typ) ->
+      name ^ " = extractvalue " ^ typ_to_string typ ^ " "
+      ^ operand_to_string op ^ ", " ^ string_of_int idx
   | InsertValue (name, agg, val_op, idx, typ) ->
       name ^ " = insertvalue " ^ typ_to_string typ ^ " "
       ^ operand_to_string agg ^ ", " ^ operand_to_string val_op ^ ", "

@@ -1,16 +1,20 @@
 %{
 open Hp_ast
 
-let gen_rec fname ids expr =
-  let rec aux ids =
-    match ids with
-    | [] -> Rec (BAnon, BAnon, expr)
-    | id :: rest -> Rec (BAnon, BAnon, aux ids)
-  in
-  match ids with
-  | [] ->  Rec (fname, BAnon, expr)
-  | [ id ] -> Rec (fname, BNamed id, expr)
-  | id :: ids -> Rec (fname, BNamed id, aux ids)
+let gen_rec fname ids tys expr =
+if List.length ids <> List.length tys - 1 then
+  failwith "gen_rec: number of identifiers and types do not match"
+else
+  let rec aux ids typs =
+      match ids with
+      | [] -> Rec (BAnon, BAnon, expr, TFun typs)
+      | [ id ] -> Rec (BAnon, BNamed id, expr, TFun typs)
+      | id :: rest -> Rec (BAnon, BNamed id, aux rest (List.tl tys), TFun typs)
+    in
+      match ids with
+      | [] ->  Rec (fname, BAnon , expr, TFun tys)
+      | [ id ] -> Rec (fname, BNamed id, expr, TFun tys)
+      | id :: ids -> Rec (fname, BNamed id, aux ids (List.tl tys), TFun tys)
 
 %}
 
@@ -18,11 +22,11 @@ let gen_rec fname ids expr =
 %token <string> IDENT
 %token TRUE FALSE UNIT
 %token IF THEN ELSE
-%token LET IN REC VAL DEFINITION COLON
+%token LET IN REC VAL DEFINITION COLON INTTYPE VOID PAIR FUN
 %token LAMBDA REF
 %token PLUS MINUS TIMES DIV
 %token EQ LT AND OR
-%token LPAREN RPAREN DOT COMMA
+%token LPAREN RPAREN DOT COMMA FIRST SECOND
 %token EOF
 
 %left OR
@@ -62,12 +66,22 @@ unary_expr:
 stmt_expr:
   | LET IDENT EQ expr IN expr %prec LOW_PRECEDENCE      { Let(Var $2, $4, $6) }
   | IF expr THEN expr ELSE expr %prec LOW_PRECEDENCE    { If($2, $4, $6) }
-  | LAMBDA IDENT DOT expr  %prec LOW_PRECEDENCE        { Rec(BAnon, BNamed $2, $4) }
-  | DEFINITION IDENT COLON VAL COLON EQ REC idents COLON EQ expr %prec LOW_PRECEDENCE { gen_rec (BNamed $2) $8 $11 }
+  | DEFINITION IDENT COLON VAL LPAREN TIMES types TIMES RPAREN COLON
+    EQ REC idents COLON EQ expr %prec LOW_PRECEDENCE { gen_rec (BNamed $2) (List.tl $13) $7 $16 }
+
+types:
+  | types COMMA typ          { $1 @ [ $3 ] }
+  | typ                        { [ $1 ] }
+
+typ:
+  | INTTYPE                     { TInt }
+  | VOID                        { TUnit }
+  | PAIR LPAREN typ COMMA typ RPAREN  { TPair ($3, $5) }
+  | FUN LPAREN types RPAREN  { TFun $3 }
 
 idents:
   | IDENT                          { [ $1 ] }
-  | idents IDENT             { $2 :: $1 }
+  | idents IDENT             { $1 @ [$2] }
 
 atom:
   | IDENT                          { Var($1) }
@@ -77,3 +91,5 @@ atom:
   | UNIT                           { Val (LitV LitUnit) }
   | LPAREN expr COMMA expr RPAREN  { Pair($2, $4) }
   | LPAREN expr RPAREN             { $2 }
+  | FIRST expr  %prec LOW_PRECEDENCE                   { Fst $2 }
+  | SECOND expr    %prec LOW_PRECEDENCE                { Snd $2 }

@@ -7,6 +7,14 @@ let var_type = Hashtbl.create 10
 
 (* This module translates Heaplang expressions into LLVM IR. *)
 
+let fst_type = function
+  | Pair (t1, _) -> t1
+  | _ -> failwith "Expected a pair type"
+
+let snd_type = function
+  | Pair (_, t2) -> t2
+  | _ -> failwith "Expected a pair type"
+
 let rec decide_ty e =
   match e with
   | Val (LitV (LitInt _)) -> Int 32
@@ -24,23 +32,55 @@ let rec decide_ty e =
       let typ1 = decide_ty v1 in
       let typ2 = decide_ty v2 in
       Pair (typ1, typ2)
+  | Fst v ->
+      let typ = decide_ty v in
+      let typ1 = fst_type typ in
+      Pointer typ1
+  | Snd v ->
+      let typ = decide_ty v in
+      let typ2 = snd_type typ in
+      Pointer typ2
   | _ -> failwith "Type not supported in translation"
 
 let var_name = function Var v -> v | _ -> failwith "Expected a variable"
 
 let extend_blk blk instrs = {blk with instructions= blk.instructions @ instrs}
 
+let rec translateType ht =
+  match ht with
+  | TInt -> Int 32
+  | TBool -> Int 1
+  | TUnit -> Void
+  | TLoc -> Pointer (Int 32)
+  | TPair (t1, t2) -> Pair (translateType t1, translateType t2)
+  | _ -> failwith "Translation not implemented for this type"
+
 let rec translateGlobal exp =
+  let rec aux f ff =
+    match f with
+    | Rec (BAnon, BNamed x, body, TFun typs) ->
+        let param_typ = translateType (List.hd typs) in
+        let ret_typ = translateType (List.hd (List.tl typs)) in
+        Hashtbl.add var_type x param_typ ;
+        aux body
+          {ff with ret_type= ret_typ; params= ff.params @ [(x, param_typ)]}
+    | _ ->
+        { ff with
+          basic_blocks= translateBlock f [] {label= "entry"; instructions= []}
+        }
+  in
   match exp with
-  | Rec (BNamed f, BNamed x, body) ->
+  | Rec (BNamed f, BNamed x, body, TFun typs) ->
+      let param_typ = translateType (List.hd typs) in
+      let ret_typ = translateType (List.hd (List.tl typs)) in
+      Hashtbl.add var_type x param_typ ;
       let f =
         { name= f
-        ; ret_type= Int 32
-        ; params= [(x, Int 32)]
-        ; basic_blocks=
-            translateBlock body [] {label= "entry"; instructions= []} }
+        ; ret_type= ret_typ
+        ; params= [(x, param_typ)]
+        ; basic_blocks= [] }
       in
-      f
+      aux body f
   | _ -> failwith "Expected a recursive function"
 
 and translateBlock exp blks curr_blk =
@@ -65,6 +105,26 @@ and translateBlock exp blks curr_blk =
             extend_blk curr_blk
               [ Alloca (varName, typ)
               ; Store (operand, decide_ty bop, LocalVar varName, typ) ]
+          in
+          translateBlock e2 blks curr_blk1
+      | Fst v ->
+          let operand = translateExpr v in
+          let curr_blk1 =
+            extend_blk curr_blk
+              [ Alloca (varName, typ)
+              ; ExtractValue (varName ^ "_fst", operand, 0, typ)
+              ; Store
+                  (LocalVar varName, typ, LocalVar (varName ^ "_fst"), typ)
+              ]
+          in
+          translateBlock e2 blks curr_blk1
+      | Snd v ->
+          let operand = translateExpr v in
+          let curr_blk1 =
+            extend_blk curr_blk
+              [ Alloca (varName, typ)
+              ; Store (operand, decide_ty v, LocalVar varName, Pointer typ)
+              ]
           in
           translateBlock e2 blks curr_blk1
       | Pair (v1, v2) ->

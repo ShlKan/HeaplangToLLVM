@@ -1,4 +1,5 @@
 Definition f : val (* int, int *) :=
 rec: "f" "a" :=
-let: "x" = "a" in
-if: "x" then #1 else #2
+let: "x" = ("a", #22) in
+let: "y" = Fst "x" in
+"y"

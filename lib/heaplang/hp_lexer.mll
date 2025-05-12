@@ -17,12 +17,18 @@ rule read = parse
   | "if:"                  { IF }
   | "then"                { THEN }
   | "else"                { ELSE }
+  | "Fst"               { FIRST }
+  | "Snd"               { SECOND }
   | "let:"                { LET }
   | "ref"                 { REF }
   | "Definition"          { DEFINITION }
   | "val"                 { VAL }
   | "rec:"                 { REC }
   | "in"                  { IN }
+  | "int"                { INTTYPE }
+  | "void"                { VOID }
+  | "pair"             { PAIR }
+  | "fun"                { FUN }
   | "λ" | "fun"           { LAMBDA }
   | "="                   { EQ }
   | "<"                   { LT }

@@ -1,4 +1,4 @@
-Definition f : val :=
-rec: f :=
+Definition f : val (* int, int *) :=
+rec: "f" "z" :=
 let: "x" = #1 in
 let: "y" = "x" in "y"
