@@ -1,0 +1,2 @@
+Definition get_left : val (* pair(int, int), int *) :=
+  λ: "v", Fst "v".

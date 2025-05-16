@@ -15,6 +15,8 @@ let snd_type = function
   | Pair (_, t2) -> t2
   | _ -> failwith "Expected a pair type"
 
+(* Counter generate *)
+
 let rec decide_ty e =
   match e with
   | Val (LitV (LitInt _)) -> Int 32
@@ -112,7 +114,7 @@ and translateBlock exp blks curr_blk =
           let curr_blk1 =
             extend_blk curr_blk
               [ Alloca (varName, typ)
-              ; ExtractValue (varName ^ "_fst", operand, 0, typ)
+              ; ExtractValue (Some (varName ^ "_fst"), operand, 0, typ)
               ; Store
                   (LocalVar varName, typ, LocalVar (varName ^ "_fst"), typ)
               ]
@@ -169,7 +171,7 @@ and translateBlock exp blks curr_blk =
               [ Call
                   (Some ("%" ^ varName), "malloc", [(operand, Int 64)], typ)
               ; GetElementPtr
-                  ( "%" ^ varName ^ "_index_1"
+                  ( Some ("%" ^ varName ^ "_index_1")
                   , LocalVar (varName ^ "_snd")
                   , [IndexConst 0]
                   , typ )
@@ -190,7 +192,7 @@ and translateBlock exp blks curr_blk =
               [ Call
                   (Some ("%" ^ varName), "malloc", [(operand, Int 64)], typ)
               ; GetElementPtr
-                  ( "%" ^ varName ^ "_index_1"
+                  ( Some ("%" ^ varName ^ "_index_1")
                   , LocalVar varName
                   , [IndexConst 0]
                   , typ )
@@ -209,6 +211,10 @@ and translateBlock exp blks curr_blk =
       | _ -> failwith "Translation not implemented for this expression" )
   | Var v -> blks @ [extend_blk curr_blk [Ret (Some (LocalVar v))]]
   | Val v -> blks @ [extend_blk curr_blk [Ret (Some (translateVal v))]]
+  | Fst v ->
+      let operand = translateExpr v in
+      let typ = decide_ty v in
+      [extend_blk curr_blk [ExtractValue (Some "%t1", operand, 0, typ)]]
   | If (cond, then_branch, else_branch) ->
       let cond_operand = translateExpr cond in
       let curr_blk' =

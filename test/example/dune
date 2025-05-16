@@ -1,0 +1,6 @@
+(cram
+ (package HeaplangToLLVM)
+ (deps
+  %{bin:HeaplangToLLVM}
+  (:hl
+   (glob_files *.hl))))

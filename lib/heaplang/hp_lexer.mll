@@ -23,6 +23,7 @@ rule read = parse
   | "ref"                 { REF }
   | "Definition"          { DEFINITION }
   | "val"                 { VAL }
+  | "λ:"                  { LAMBDA }
   | "rec:"                 { REC }
   | "in"                  { IN }
   | "int"                { INTTYPE }

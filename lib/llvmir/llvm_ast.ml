@@ -33,9 +33,9 @@ type instruction =
   | CondBr of operand * string * string
   | Phi of (operand * string) list * typ
   | GetElementPtr of
-      string * operand * gep_index list * typ (* GEP instruction *)
+      string option * operand * gep_index list * typ (* GEP instruction *)
   | ExtractValue of
-      string * operand * int * typ (* Extract from a pair or struct *)
+      string option * operand * int * typ (* Extract from a pair or struct *)
   | InsertValue of
       string
       * operand
@@ -65,8 +65,7 @@ let rec typ_to_string = function
   | Pointer t -> typ_to_string t ^ "*"
   | Array (n, t) -> "[" ^ string_of_int n ^ " x " ^ typ_to_string t ^ "]"
   | Struct ts -> "{" ^ String.concat ", " (List.map typ_to_string ts) ^ "}"
-  | Pair (t1, t2) ->
-      "pair(" ^ typ_to_string t1 ^ ", " ^ typ_to_string t2 ^ ")"
+  | Pair (t1, t2) -> "{" ^ typ_to_string t1 ^ ", " ^ typ_to_string t2 ^ "}"
 
 let operand_to_string = function
   | ConstVoid -> "void ()"
@@ -125,13 +124,24 @@ let rec instruction_to_string = function
              (fun (op, label) ->
                "[" ^ operand_to_string op ^ ", %" ^ label ^ "]" )
              incoming )
-  | GetElementPtr (name, base, indices, typ) ->
-      name ^ " = getelementptr " ^ typ_to_string typ ^ ", "
-      ^ operand_to_string base ^ ", "
-      ^ String.concat ", " (List.map gep_index_to_string indices)
-  | ExtractValue (name, op, idx, typ) ->
-      name ^ " = extractvalue " ^ typ_to_string typ ^ " "
-      ^ operand_to_string op ^ ", " ^ string_of_int idx
+  | GetElementPtr (name, base, indices, typ) -> (
+    match name with
+    | None ->
+        "getelementptr " ^ typ_to_string typ ^ ", " ^ operand_to_string base
+        ^ ", "
+        ^ String.concat ", " (List.map gep_index_to_string indices)
+    | Some name ->
+        name ^ " = getelementptr " ^ typ_to_string typ ^ ", "
+        ^ operand_to_string base ^ ", "
+        ^ String.concat ", " (List.map gep_index_to_string indices) )
+  | ExtractValue (name, op, idx, typ) -> (
+    match name with
+    | None ->
+        "extractvalue " ^ typ_to_string typ ^ " " ^ operand_to_string op
+        ^ ", " ^ string_of_int idx
+    | Some name ->
+        name ^ " = extractvalue " ^ typ_to_string typ ^ " "
+        ^ operand_to_string op ^ ", " ^ string_of_int idx )
   | InsertValue (name, agg, val_op, idx, typ) ->
       name ^ " = insertvalue " ^ typ_to_string typ ^ " "
       ^ operand_to_string agg ^ ", " ^ operand_to_string val_op ^ ", "

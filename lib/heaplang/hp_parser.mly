@@ -67,7 +67,9 @@ stmt_expr:
   | LET IDENT EQ expr IN expr %prec LOW_PRECEDENCE      { Let(Var $2, $4, $6) }
   | IF expr THEN expr ELSE expr %prec LOW_PRECEDENCE    { If($2, $4, $6) }
   | DEFINITION IDENT COLON VAL LPAREN TIMES types TIMES RPAREN COLON
-    EQ REC idents COLON EQ expr %prec LOW_PRECEDENCE { gen_rec (BNamed $2) (List.tl $13) $7 $16 }
+    EQ REC idents COLON EQ expr DOT  { gen_rec (BNamed $2) (List.tl $13) $7 $16 }
+  | DEFINITION IDENT COLON VAL LPAREN TIMES types TIMES RPAREN COLON
+    EQ LAMBDA idents COMMA expr DOT  { gen_rec (BNamed $2) $13 $7 $15 }
 
 types:
   | types COMMA typ          { $1 @ [ $3 ] }
