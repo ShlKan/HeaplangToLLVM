@@ -9,6 +9,8 @@ for file in ./*.hl; do
         echo "Successfully executed $file"
     else
         echo "Error running lli on $tmpfile"
+        echo $result
+        cat  $tmpfile
         exit 1
     fi
 done

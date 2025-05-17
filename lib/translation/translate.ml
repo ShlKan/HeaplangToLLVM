@@ -35,6 +35,7 @@ let rec decide_ty e =
   | AllocN (_sz, expr) ->
       let typ = decide_ty expr in
       Pointer typ
+  | BinOp (PlusOp, e1, _e2) -> decide_ty e1
   | Pair (v1, v2) ->
       let typ1 = decide_ty v1 in
       let typ2 = decide_ty v2 in
@@ -42,11 +43,11 @@ let rec decide_ty e =
   | Fst v ->
       let typ = decide_ty v in
       let typ1 = fst_type typ in
-      Pointer typ1
+      typ1
   | Snd v ->
       let typ = decide_ty v in
       let typ2 = snd_type typ in
-      Pointer typ2
+      typ2
   | App (f, _) -> decide_ty f
   | _ -> failwith "Type not supported in translation"
 
@@ -70,19 +71,20 @@ let rec translateHeaplang stmts =
       let fst_st = translateGlobal st in
       fst_st :: translateHeaplang rest_stmts
 
-and translateApp app varName =
+and translateApp app varName curr_blk =
   match app with
   | App (f, arg) -> (
       let typ = decide_ty arg in
-      let arg_exp = translateExpr arg in
-      let call_expr = translateApp f varName in
+      let curr_blk1, arg_exp = translateExpr arg curr_blk in
+      let curr_blk2, call_expr = translateApp f varName curr_blk1 in
       match call_expr with
-      | Call (Some varName, fun_name, args, ret_typ) ->
-          Call (Some varName, fun_name, args @ [(arg_exp, typ)], ret_typ)
+      | Call (varName, fun_name, args, ret_typ) ->
+          ( curr_blk2
+          , Call (varName, fun_name, args @ [(arg_exp, typ)], ret_typ) )
       | _ -> failwith "Expected a function call" )
   | Var fun_name ->
       let ret_typ = decide_ty (Var fun_name) in
-      Call (Some varName, fun_name, [], ret_typ)
+      (curr_blk, Call (varName, fun_name, [], ret_typ))
   | _ -> failwith "Expected an application"
 
 and translateGlobal exp =
@@ -113,7 +115,7 @@ and translateGlobal exp =
         let f =
           { name= f
           ; ret_type= ret_typ
-          ; params= [(x, param_typ)]
+          ; params= [(x, Pointer param_typ)]
           ; basic_blocks= [] }
         in
         aux body f )
@@ -127,156 +129,210 @@ and translateBlock exp blks curr_blk =
       Hashtbl.add var_type varName typ ;
       match e1 with
       | Val (LitV (LitInt _)) ->
-          let operand = translateExpr e1 in
-          let curr_blk1 =
-            extend_blk curr_blk
-              [ Alloca (varName, typ)
-              ; Store (operand, decide_ty e1, LocalVar varName, Pointer typ)
-              ]
-          in
-          translateBlock e2 blks curr_blk1
-      | BinOp _ as bop ->
-          let operand = translateExpr bop in
-          let curr_blk1 =
-            extend_blk curr_blk
-              [ Alloca (varName, typ)
-              ; Store (operand, decide_ty bop, LocalVar varName, typ) ]
-          in
-          translateBlock e2 blks curr_blk1
-      | Fst v ->
-          let operand = translateExpr v in
-          let curr_blk1 =
-            extend_blk curr_blk
-              [ Alloca (varName, typ)
-              ; ExtractValue (Some (tmp_var curr_blk), operand, 0, typ)
-              ; Store
-                  (LocalVar varName, typ, LocalVar (tmp_var curr_blk), typ)
-              ]
-          in
-          translateBlock e2 blks curr_blk1
-      | Snd v ->
-          let operand = translateExpr v in
-          let curr_blk1 =
-            extend_blk curr_blk
-              [ Alloca (varName, typ)
-              ; Store (operand, decide_ty v, LocalVar varName, Pointer typ)
-              ]
-          in
-          translateBlock e2 blks curr_blk1
-      | Pair (v1, v2) ->
-          let operand1 = translateExpr v1 in
-          let operand2 = translateExpr v2 in
-          let curr_blk1 =
-            extend_blk curr_blk
-              [ Alloca (varName, typ)
-              ; InsertValue (tmp_var curr_blk, Undef, operand1, 0, typ)
-              ; InsertValue (varName, LocalVar varName, operand2, 1, typ) ]
-          in
-          translateBlock e2 blks curr_blk1
-      | Val (PairV (v1, v2)) ->
-          let operand1 = translateVal v1 in
-          let operand2 = translateVal v2 in
-          let curr_blk1 =
-            extend_blk curr_blk
-              [ Alloca (varName, typ)
-              ; InsertValue (tmp_var curr_blk, Undef, operand1, 0, typ)
-              ; InsertValue (varName, LocalVar varName, operand2, 1, typ) ]
-          in
-          translateBlock e2 blks curr_blk1
-      | AllocN (sz, Pair (v1, v2)) ->
-          (* Currently, the translation supports only sz == 1. *)
-          let operand = translateExpr sz in
-          let typ1 = decide_ty (Pair (v1, v2)) in
-          let operand1 = translateExpr v1 in
-          let operand2 = translateExpr v2 in
-          let curr_blk1 =
-            extend_blk curr_blk
-              [ Alloca (varName, typ1)
-              ; InsertValue (tmp_var curr_blk, Undef, operand1, 0, typ1)
-              ; InsertValue
-                  ( tmp_var ~step:1 curr_blk
-                  , LocalVar varName
-                  , operand2
-                  , 1
-                  , typ1 ) ]
-          in
+          let curr_blk1, operand = translateExpr e1 curr_blk in
           let curr_blk2 =
             extend_blk curr_blk1
-              [ Call (Some varName, "malloc", [(operand, Int 64)], typ)
-              ; GetElementPtr
-                  ( Some (tmp_var curr_blk1)
-                  , LocalVar (tmp_var ~step:1 curr_blk)
-                  , [IndexConst 0]
-                  , typ )
-              ; Store
-                  ( LocalVar (tmp_var ~step:1 curr_blk)
-                  , typ1
-                  , LocalVar (tmp_var curr_blk1)
-                  , typ ) ]
-          in
-          translateBlock e2 blks curr_blk2
-      | AllocN (sz, value) ->
-          (* Currently, the translation supports only sz == 1. *)
-          let operand = translateExpr sz in
-          let valu = translateExpr value in
-          let typ1 = decide_ty value in
-          let curr_blk1 =
-            extend_blk curr_blk
-              [ Call (Some varName, "malloc", [(operand, Int 64)], typ)
-              ; GetElementPtr
-                  ( Some (tmp_var curr_blk)
-                  , LocalVar varName
-                  , [IndexConst 0]
-                  , typ1 )
-              ; Store (valu, typ1, LocalVar (tmp_var curr_blk), typ) ]
-          in
-          translateBlock e2 blks curr_blk1
-      | Var _ ->
-          let operand = translateExpr e1 in
-          let curr_blk1 =
-            extend_blk curr_blk
               [ Alloca (varName, typ)
               ; Store (operand, decide_ty e1, LocalVar varName, Pointer typ)
               ]
           in
-          translateBlock e2 blks curr_blk1
-      | App (f, arg) ->
-          let typ = decide_ty f in
-          let curr_blk1 =
-            extend_blk curr_blk
-              [ translateApp (App (f, arg)) (tmp_var curr_blk)
-              ; Alloca (varName, typ)
+          translateBlock e2 blks curr_blk2
+      | BinOp (PlusOp, e1, e2) ->
+          let curr_blk1, operand1 = translateExpr e1 curr_blk in
+          let curr_blk2, operand2 = translateExpr e2 curr_blk1 in
+          let bin_op =
+            BinOp (tmp_var curr_blk2, Add, operand1, operand2, decide_ty e1)
+          in
+          let curr_blk3 =
+            extend_blk curr_blk2
+              [ Alloca (varName, typ)
+              ; bin_op
               ; Store
-                  ( LocalVar (tmp_var curr_blk)
+                  ( LocalVar (tmp_var curr_blk1)
+                  , decide_ty e1
+                  , LocalVar varName
+                  , Pointer typ ) ]
+          in
+          translateBlock e2 blks curr_blk3
+      | Fst v ->
+          let curr_blk1, operand = translateExpr v curr_blk in
+          let curr_blk2 =
+            extend_blk curr_blk1
+              [ Alloca (varName, Pointer typ)
+              ; ExtractValue
+                  (Some (tmp_var curr_blk1), operand, 0, decide_ty v)
+              ; Store
+                  ( LocalVar (tmp_var curr_blk1)
+                  , decide_ty (Fst v)
+                  , LocalVar varName
+                  , Pointer typ ) ]
+          in
+          translateBlock e2 blks curr_blk2
+      | Snd v ->
+          let curr_blk1, operand = translateExpr v curr_blk in
+          let curr_blk2 =
+            extend_blk curr_blk1
+              [ Alloca (varName, Pointer typ)
+              ; ExtractValue
+                  (Some (tmp_var curr_blk1), operand, 1, decide_ty v)
+              ; Store
+                  ( LocalVar (tmp_var curr_blk1)
+                  , decide_ty (Snd v)
+                  , LocalVar varName
+                  , Pointer typ ) ]
+          in
+          translateBlock e2 blks curr_blk2
+      | Pair (v1, v2) ->
+          let curr_blk1, operand1 = translateExpr v1 curr_blk in
+          let curr_blk2, operand2 = translateExpr v2 curr_blk1 in
+          let curr_blk3 =
+            extend_blk curr_blk2
+              [ Alloca (varName, typ)
+              ; InsertValue
+                  (tmp_var curr_blk2, Undef, (operand1, decide_ty v1), 0, typ)
+              ; InsertValue
+                  ( tmp_var ~step:1 curr_blk2
+                  , LocalVar (tmp_var curr_blk2)
+                  , (operand2, decide_ty v2)
+                  , 1
+                  , typ )
+              ; Store
+                  ( LocalVar (tmp_var ~step:1 curr_blk2)
                   , typ
                   , LocalVar varName
                   , Pointer typ ) ]
           in
-          translateBlock e2 blks curr_blk1
+          translateBlock e2 blks curr_blk3
+      | AllocN (sz, Pair (v1, v2)) ->
+          (* Currently, the translation supports only sz == 1. *)
+          let curr_blk1, operand = translateExpr sz curr_blk in
+          let typ1 = decide_ty (Pair (v1, v2)) in
+          let curr_blk2, operand1 = translateExpr v1 curr_blk1 in
+          let curr_blk3, operand2 = translateExpr v2 curr_blk2 in
+          let curr_blk4 =
+            extend_blk curr_blk3
+              [ Alloca (varName, typ1)
+              ; InsertValue
+                  ( tmp_var curr_blk3
+                  , Undef
+                  , (operand1, decide_ty v1)
+                  , 0
+                  , typ1 )
+              ; InsertValue
+                  ( tmp_var ~step:1 curr_blk3
+                  , LocalVar varName
+                  , (operand2, decide_ty v2)
+                  , 1
+                  , typ1 ) ]
+          in
+          let curr_blk5 =
+            extend_blk curr_blk4
+              [ Call (Some varName, "malloc", [(operand, Int 64)], typ)
+              ; GetElementPtr
+                  ( Some (tmp_var curr_blk4)
+                  , LocalVar (tmp_var ~step:1 curr_blk3)
+                  , [IndexConst 0]
+                  , typ )
+              ; Store
+                  ( LocalVar (tmp_var ~step:1 curr_blk3)
+                  , typ1
+                  , LocalVar (tmp_var curr_blk4)
+                  , typ ) ]
+          in
+          translateBlock e2 blks curr_blk5
+      | AllocN (sz, value) ->
+          (* Currently, the translation supports only sz == 1. *)
+          let curr_blk1, operand = translateExpr sz curr_blk in
+          let curr_blk2, valu = translateExpr value curr_blk1 in
+          let typ1 = decide_ty value in
+          let curr_blk3 =
+            extend_blk curr_blk2
+              [ Call (Some varName, "malloc", [(operand, Int 64)], typ)
+              ; GetElementPtr
+                  ( Some (tmp_var curr_blk2)
+                  , LocalVar varName
+                  , [IndexConst 0]
+                  , typ1 )
+              ; Store (valu, typ1, LocalVar (tmp_var curr_blk2), typ) ]
+          in
+          translateBlock e2 blks curr_blk3
+      | Var _ ->
+          let curr_blk1, operand = translateExpr e1 curr_blk in
+          let curr_blk2 =
+            extend_blk curr_blk1
+              [ Alloca (varName, typ)
+              ; Store (operand, decide_ty e1, LocalVar varName, Pointer typ)
+              ]
+          in
+          translateBlock e2 blks curr_blk2
+      | App (f, arg) ->
+          let typ = decide_ty f in
+          let curr_blk1, _ = translateApp (App (f, arg)) None curr_blk in
+          let curr_blk2, operand1 =
+            translateApp (App (f, arg)) (Some (tmp_var curr_blk1)) curr_blk1
+          in
+          let curr_blk3 =
+            extend_blk curr_blk2
+              [ operand1
+              ; Alloca (varName, typ)
+              ; Store
+                  ( LocalVar (tmp_var curr_blk1)
+                  , typ
+                  , LocalVar varName
+                  , Pointer typ ) ]
+          in
+          translateBlock e2 blks curr_blk3
       | _ -> failwith "Translation not implemented for this expression" )
+  | Print v ->
+      let curr_blk1, operand = translateExpr v curr_blk in
+      let curr_blk2 =
+        extend_blk curr_blk1
+          [ GetElementPtr
+              ( Some (tmp_var curr_blk1)
+              , GlobalVar ".str"
+              , [IndexConst 0; IndexConst 0]
+              , Array (4, Int 8) )
+          ; Call
+              ( Some (tmp_var ~step:1 curr_blk1)
+              , "printf"
+              , [ (LocalVar (tmp_var curr_blk1), Pointer (Int 8))
+                ; (operand, decide_ty v) ]
+              , Int 32 )
+          ; Ret (Some (LocalVar (tmp_var ~step:1 curr_blk1), Int 32)) ]
+      in
+      blks @ [curr_blk2]
   | Var v ->
       let typ = decide_ty (Var v) in
-      blks @ [extend_blk curr_blk [Ret (Some (LocalVar v, typ))]]
+      let curr_blk1, operand = translateExpr (Var v) curr_blk in
+      blks @ [extend_blk curr_blk1 [Ret (Some (operand, typ))]]
   | Val v ->
       let typ = decide_ty (Val v) in
       blks @ [extend_blk curr_blk [Ret (Some (translateVal v, typ))]]
   | Fst v ->
-      let operand = translateExpr v in
+      let curr_blk1, operand = translateExpr v curr_blk in
       let typ = decide_ty v in
-      [ extend_blk curr_blk
-          [ ExtractValue (Some (tmp_var curr_blk), operand, 0, typ)
-          ; Ret (Some (LocalVar (tmp_var curr_blk), fst_type typ)) ] ]
+      [ extend_blk curr_blk1
+          [ ExtractValue (Some (tmp_var curr_blk1), operand, 0, typ)
+          ; Ret (Some (LocalVar (tmp_var curr_blk1), fst_type typ)) ] ]
+  | Snd v ->
+      let curr_blk1, operand = translateExpr v curr_blk in
+      let typ = decide_ty v in
+      [ extend_blk curr_blk1
+          [ ExtractValue (Some (tmp_var curr_blk1), operand, 1, typ)
+          ; Ret (Some (LocalVar (tmp_var curr_blk1), snd_type typ)) ] ]
   | App (f, arg) ->
       let typ = decide_ty f in
-      [ extend_blk curr_blk
-          [ translateApp (App (f, arg)) (tmp_var curr_blk)
-          ; Ret (Some (LocalVar (tmp_var curr_blk), typ)) ] ]
-  | If (cond, then_branch, else_branch) ->
-      let cond_operand = translateExpr cond in
-      let curr_blk' =
-        extend_blk curr_blk [CondBr (cond_operand, "then", "else")]
+      let curr_blk1, operand =
+        translateApp (App (f, arg)) (Some (tmp_var curr_blk)) curr_blk
       in
-      let blks' = blks @ [curr_blk'] in
+      [ extend_blk curr_blk1
+          [operand; Ret (Some (LocalVar (tmp_var curr_blk), typ))] ]
+  | If (cond, then_branch, else_branch) ->
+      let curr_blk1, cond_operand = translateExpr cond curr_blk in
+      let curr_blk2 =
+        extend_blk curr_blk1 [CondBr (cond_operand, "then", "else")]
+      in
+      let blks' = blks @ [curr_blk2] in
       let blks'' =
         translateBlock then_branch blks' {label= "then"; instructions= []}
       in
@@ -284,14 +340,28 @@ and translateBlock exp blks curr_blk =
         translateBlock else_branch blks'' {label= "else"; instructions= []}
       in
       blks'''
-  | _ -> failwith "Translation not implemented for this statement"
+  | BinOp (PlusOp, e1, e2) ->
+      let curr_blk1, operand1 = translateExpr e1 curr_blk in
+      let curr_blk2, operand2 = translateExpr e2 curr_blk1 in
+      let bin_op =
+        BinOp (tmp_var curr_blk1, Add, operand1, operand2, decide_ty e1)
+      in
+      [ extend_blk curr_blk2
+          [bin_op; Ret (Some (LocalVar (tmp_var curr_blk1), decide_ty e1))]
+      ]
+  | _ ->
+      Format.printf "%s\n" (Hp_ast.ast_to_string exp) ;
+      failwith "Translation not implemented for this statement"
 
 (* Add more translation cases as needed *)
 
-and translateExpr e =
+and translateExpr e curr_blk =
   match e with
-  | Val v -> translateVal v
-  | Var v -> LocalVar v
+  | Val v -> (curr_blk, translateVal v)
+  | Var v ->
+      ( extend_blk curr_blk
+          [Load (Some (tmp_var curr_blk), LocalVar v, decide_ty (Var v))]
+      , LocalVar (tmp_var curr_blk) )
   | _ -> failwith "Translation not implemented for this expression"
 
 (* Translate Heaplang values to LLVM IR operands *)

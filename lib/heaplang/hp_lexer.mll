@@ -21,6 +21,7 @@ rule read = parse
   | "Snd"               { SECOND }
   | "let:"                { LET }
   | "ref"                 { REF }
+  | "print"              { PRINT }
   | "Definition"          { DEFINITION }
   | "val"                 { VAL }
   | "λ:"                  { LAMBDA }

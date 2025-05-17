@@ -24,7 +24,7 @@ type gep_index = IndexConst of int | IndexVar of operand
 
 type instruction =
   | BinOp of string * binop * operand * operand * typ
-  | Load of operand * typ
+  | Load of string option * operand * typ
   | Store of operand * typ * operand * typ
   | Alloca of string * typ
   | Call of string option * string * (operand * typ) list * typ
@@ -39,7 +39,7 @@ type instruction =
   | InsertValue of
       string
       * operand
-      * operand
+      * (operand * typ)
       * int
       * typ (* Insert into a pair or struct *)
   | Assert of
@@ -101,8 +101,11 @@ let rec instruction_to_string = function
   | BinOp (name, op, lhs, rhs, typ) ->
       local_var name ^ " = " ^ binop_to_string op ^ " " ^ typ_to_string typ
       ^ " " ^ operand_to_string lhs ^ ", " ^ operand_to_string rhs
-  | Load (op, typ) ->
-      "load " ^ typ_to_string typ ^ ", " ^ arg_to_string (op, typ)
+  | Load (Some name, op, typ) ->
+      local_var name ^ " = load " ^ typ_to_string typ ^ ", "
+      ^ arg_to_string (op, Pointer typ)
+  | Load (None, op, typ) ->
+      "load " ^ typ_to_string typ ^ ", " ^ arg_to_string (op, Pointer typ)
   | Store (src, typ1, dst, typ) ->
       "store " ^ typ_to_string typ1 ^ " " ^ operand_to_string src ^ ", "
       ^ typ_to_string typ ^ " " ^ operand_to_string dst
@@ -112,9 +115,15 @@ let rec instruction_to_string = function
       ^ String.concat ", " (List.map arg_to_string args)
       ^ ")"
   | Call (Some varName, name, args, typ) ->
-      local_var varName ^ " = call " ^ typ_to_string typ ^ " @" ^ name ^ "("
-      ^ String.concat ", " (List.map arg_to_string args)
-      ^ ")"
+      if typ = Void then
+        "call " ^ typ_to_string typ ^ " @" ^ name ^ "("
+        ^ String.concat ", " (List.map arg_to_string args)
+        ^ ")"
+      else
+        local_var varName ^ " = call " ^ typ_to_string typ ^ " @" ^ name
+        ^ "("
+        ^ String.concat ", " (List.map arg_to_string args)
+        ^ ")"
   | Ret None -> "ret void"
   | Ret (Some (op, typ)) ->
       "ret " ^ typ_to_string typ ^ " " ^ operand_to_string op
@@ -151,8 +160,11 @@ let rec instruction_to_string = function
         ^ operand_to_string op ^ ", " ^ string_of_int idx )
   | InsertValue (name, agg, val_op, idx, typ) ->
       local_var name ^ " = insertvalue " ^ typ_to_string typ ^ " "
-      ^ operand_to_string agg ^ ", " ^ operand_to_string val_op ^ ", "
-      ^ string_of_int idx
+      ^ operand_to_string agg ^ ", "
+      ^ typ_to_string (snd val_op)
+      ^ " "
+      ^ operand_to_string (fst val_op)
+      ^ ", " ^ string_of_int idx
   | Assert (cond, msg) ->
       "assert " ^ operand_to_string cond ^ " \"" ^ msg ^ "\""
 

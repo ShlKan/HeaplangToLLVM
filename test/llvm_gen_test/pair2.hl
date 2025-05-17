@@ -1,5 +1,5 @@
 Definition f : val (* int, int *) :=
 rec: "f" "a" :=
 let: "x" = ("a", #22) in
-let: "y" = Fst "x" in
+let: "y" = Snd "x" in
 "y".

@@ -1,0 +1,10 @@
+Definition f : val (* int, int *) :=
+rec: "f" "z" :=
+let: "x" = #1 in
+print "x".
+
+Definition main : val (* void, int *) :=
+λ: "v",
+  let: "x" = #1 in
+  let: "y" = f "x" in
+  #1.

@@ -22,7 +22,7 @@ else
 %token <string> IDENT
 %token TRUE FALSE UNIT
 %token IF THEN ELSE
-%token LET IN REC VAL DEFINITION COLON INTTYPE VOID PAIR FUN
+%token LET IN REC VAL DEFINITION COLON INTTYPE VOID PAIR FUN PRINT
 %token LAMBDA REF
 %token PLUS MINUS TIMES DIV
 %token EQ LT AND OR
@@ -94,6 +94,7 @@ stmt_expr:
     EQ REC idents COLON EQ expr DOT  { gen_rec (BNamed $2) (List.tl $13) $7 $16 }
   | DEFINITION IDENT COLON VAL LPAREN TIMES types TIMES RPAREN COLON
     EQ LAMBDA idents COMMA expr DOT  { gen_rec (BNamed $2) $13 $7 $15 }
+  | PRINT expr  %prec LOW_PRECEDENCE { Print $2 }
 
 types:
   | types COMMA typ          { $1 @ [ $3 ] }

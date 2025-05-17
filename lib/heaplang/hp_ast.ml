@@ -79,6 +79,7 @@ type expr =
   | NewProph of expr
   | Resolve of (expr * expr * expr)
   | Let of (expr * expr * expr)
+  | Print of expr
 
 let rec ast_to_string = function
   | Val (LitV (LitInt i)) -> string_of_int i
@@ -134,6 +135,7 @@ let rec ast_to_string = function
   | Let (e1, e2, e3) ->
       "let " ^ ast_to_string e1 ^ " = " ^ ast_to_string e2 ^ " in "
       ^ ast_to_string e3
+  | Print e -> "print(" ^ ast_to_string e ^ ")"
   | _ -> "unknown"
 
 and un_op_to_string = function NegOp -> "neg" | MinusUnOp -> "-"
