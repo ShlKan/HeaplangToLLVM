@@ -5,6 +5,11 @@ open Llvm_ast
 
 let var_type = Hashtbl.create 10
 
+let tmp_var ?(step = 0) blk =
+  let index = List.length blk.instructions in
+  let var_name = Printf.sprintf "tmp_%d_%d" index step in
+  var_name
+
 (* This module translates Heaplang expressions into LLVM IR. *)
 
 let fst_type = function
@@ -42,6 +47,7 @@ let rec decide_ty e =
       let typ = decide_ty v in
       let typ2 = snd_type typ in
       Pointer typ2
+  | App (f, _) -> decide_ty f
   | _ -> failwith "Type not supported in translation"
 
 let var_name = function Var v -> v | _ -> failwith "Expected a variable"
@@ -57,7 +63,29 @@ let rec translateType ht =
   | TPair (t1, t2) -> Pair (translateType t1, translateType t2)
   | _ -> failwith "Translation not implemented for this type"
 
-let rec translateGlobal exp =
+let rec translateHeaplang stmts =
+  match stmts with
+  | [] -> []
+  | st :: rest_stmts ->
+      let fst_st = translateGlobal st in
+      fst_st :: translateHeaplang rest_stmts
+
+and translateApp app varName =
+  match app with
+  | App (f, arg) -> (
+      let typ = decide_ty arg in
+      let arg_exp = translateExpr arg in
+      let call_expr = translateApp f varName in
+      match call_expr with
+      | Call (Some varName, fun_name, args, ret_typ) ->
+          Call (Some varName, fun_name, args @ [(arg_exp, typ)], ret_typ)
+      | _ -> failwith "Expected a function call" )
+  | Var fun_name ->
+      let ret_typ = decide_ty (Var fun_name) in
+      Call (Some varName, fun_name, [], ret_typ)
+  | _ -> failwith "Expected an application"
+
+and translateGlobal exp =
   let rec aux f ff =
     match f with
     | Rec (BAnon, BNamed x, body, TFun typs) ->
@@ -75,14 +103,20 @@ let rec translateGlobal exp =
   | Rec (BNamed f, BNamed x, body, TFun typs) ->
       let param_typ = translateType (List.hd typs) in
       let ret_typ = translateType (List.hd (List.tl typs)) in
-      Hashtbl.add var_type x param_typ ;
-      let f =
-        { name= f
-        ; ret_type= ret_typ
-        ; params= [(x, param_typ)]
-        ; basic_blocks= [] }
-      in
-      aux body f
+      (* Currently, we only bind return type to the funciton name *)
+      Hashtbl.add var_type f ret_typ ;
+      if param_typ = Void then
+        let f = {name= f; ret_type= ret_typ; params= []; basic_blocks= []} in
+        aux body f
+      else (
+        Hashtbl.add var_type x param_typ ;
+        let f =
+          { name= f
+          ; ret_type= ret_typ
+          ; params= [(x, param_typ)]
+          ; basic_blocks= [] }
+        in
+        aux body f )
   | _ -> failwith "Expected a recursive function"
 
 and translateBlock exp blks curr_blk =
@@ -96,7 +130,7 @@ and translateBlock exp blks curr_blk =
           let operand = translateExpr e1 in
           let curr_blk1 =
             extend_blk curr_blk
-              [ Alloca ("%" ^ varName, typ)
+              [ Alloca (varName, typ)
               ; Store (operand, decide_ty e1, LocalVar varName, Pointer typ)
               ]
           in
@@ -114,9 +148,9 @@ and translateBlock exp blks curr_blk =
           let curr_blk1 =
             extend_blk curr_blk
               [ Alloca (varName, typ)
-              ; ExtractValue (Some (varName ^ "_fst"), operand, 0, typ)
+              ; ExtractValue (Some (tmp_var curr_blk), operand, 0, typ)
               ; Store
-                  (LocalVar varName, typ, LocalVar (varName ^ "_fst"), typ)
+                  (LocalVar varName, typ, LocalVar (tmp_var curr_blk), typ)
               ]
           in
           translateBlock e2 blks curr_blk1
@@ -135,7 +169,7 @@ and translateBlock exp blks curr_blk =
           let curr_blk1 =
             extend_blk curr_blk
               [ Alloca (varName, typ)
-              ; InsertValue (varName ^ "_fst", Undef, operand1, 0, typ)
+              ; InsertValue (tmp_var curr_blk, Undef, operand1, 0, typ)
               ; InsertValue (varName, LocalVar varName, operand2, 1, typ) ]
           in
           translateBlock e2 blks curr_blk1
@@ -145,7 +179,7 @@ and translateBlock exp blks curr_blk =
           let curr_blk1 =
             extend_blk curr_blk
               [ Alloca (varName, typ)
-              ; InsertValue (varName ^ "_fst", Undef, operand1, 0, typ)
+              ; InsertValue (tmp_var curr_blk, Undef, operand1, 0, typ)
               ; InsertValue (varName, LocalVar varName, operand2, 1, typ) ]
           in
           translateBlock e2 blks curr_blk1
@@ -157,10 +191,10 @@ and translateBlock exp blks curr_blk =
           let operand2 = translateExpr v2 in
           let curr_blk1 =
             extend_blk curr_blk
-              [ Alloca ("%" ^ varName, typ1)
-              ; InsertValue ("%" ^ varName ^ "_fst", Undef, operand1, 0, typ1)
+              [ Alloca (varName, typ1)
+              ; InsertValue (tmp_var curr_blk, Undef, operand1, 0, typ1)
               ; InsertValue
-                  ( "%" ^ varName ^ "_snd"
+                  ( tmp_var ~step:1 curr_blk
                   , LocalVar varName
                   , operand2
                   , 1
@@ -168,17 +202,16 @@ and translateBlock exp blks curr_blk =
           in
           let curr_blk2 =
             extend_blk curr_blk1
-              [ Call
-                  (Some ("%" ^ varName), "malloc", [(operand, Int 64)], typ)
+              [ Call (Some varName, "malloc", [(operand, Int 64)], typ)
               ; GetElementPtr
-                  ( Some ("%" ^ varName ^ "_index_1")
-                  , LocalVar (varName ^ "_snd")
+                  ( Some (tmp_var curr_blk1)
+                  , LocalVar (tmp_var ~step:1 curr_blk)
                   , [IndexConst 0]
                   , typ )
               ; Store
-                  ( LocalVar (varName ^ "_snd")
+                  ( LocalVar (tmp_var ~step:1 curr_blk)
                   , typ1
-                  , LocalVar (varName ^ "_index_1")
+                  , LocalVar (tmp_var curr_blk1)
                   , typ ) ]
           in
           translateBlock e2 blks curr_blk2
@@ -189,32 +222,55 @@ and translateBlock exp blks curr_blk =
           let typ1 = decide_ty value in
           let curr_blk1 =
             extend_blk curr_blk
-              [ Call
-                  (Some ("%" ^ varName), "malloc", [(operand, Int 64)], typ)
+              [ Call (Some varName, "malloc", [(operand, Int 64)], typ)
               ; GetElementPtr
-                  ( Some ("%" ^ varName ^ "_index_1")
+                  ( Some (tmp_var curr_blk)
                   , LocalVar varName
                   , [IndexConst 0]
-                  , typ )
-              ; Store (valu, typ1, LocalVar (varName ^ "_index_1"), typ) ]
+                  , typ1 )
+              ; Store (valu, typ1, LocalVar (tmp_var curr_blk), typ) ]
           in
           translateBlock e2 blks curr_blk1
       | Var _ ->
           let operand = translateExpr e1 in
           let curr_blk1 =
             extend_blk curr_blk
-              [ Alloca ("%" ^ varName, typ)
+              [ Alloca (varName, typ)
               ; Store (operand, decide_ty e1, LocalVar varName, Pointer typ)
               ]
           in
           translateBlock e2 blks curr_blk1
+      | App (f, arg) ->
+          let typ = decide_ty f in
+          let curr_blk1 =
+            extend_blk curr_blk
+              [ translateApp (App (f, arg)) (tmp_var curr_blk)
+              ; Alloca (varName, typ)
+              ; Store
+                  ( LocalVar (tmp_var curr_blk)
+                  , typ
+                  , LocalVar varName
+                  , Pointer typ ) ]
+          in
+          translateBlock e2 blks curr_blk1
       | _ -> failwith "Translation not implemented for this expression" )
-  | Var v -> blks @ [extend_blk curr_blk [Ret (Some (LocalVar v))]]
-  | Val v -> blks @ [extend_blk curr_blk [Ret (Some (translateVal v))]]
+  | Var v ->
+      let typ = decide_ty (Var v) in
+      blks @ [extend_blk curr_blk [Ret (Some (LocalVar v, typ))]]
+  | Val v ->
+      let typ = decide_ty (Val v) in
+      blks @ [extend_blk curr_blk [Ret (Some (translateVal v, typ))]]
   | Fst v ->
       let operand = translateExpr v in
       let typ = decide_ty v in
-      [extend_blk curr_blk [ExtractValue (Some "%t1", operand, 0, typ)]]
+      [ extend_blk curr_blk
+          [ ExtractValue (Some (tmp_var curr_blk), operand, 0, typ)
+          ; Ret (Some (LocalVar (tmp_var curr_blk), fst_type typ)) ] ]
+  | App (f, arg) ->
+      let typ = decide_ty f in
+      [ extend_blk curr_blk
+          [ translateApp (App (f, arg)) (tmp_var curr_blk)
+          ; Ret (Some (LocalVar (tmp_var curr_blk), typ)) ] ]
   | If (cond, then_branch, else_branch) ->
       let cond_operand = translateExpr cond in
       let curr_blk' =

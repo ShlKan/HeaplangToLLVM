@@ -11,12 +11,14 @@ let () =
     try
       match mode with
       | "--ast" ->
-          let expr = Hp_read.hp_read filename in
-          Format.printf "AST:\n %s" (Hp_ast.ast_to_string expr)
+          let stmts = Hp_read.hp_read filename in
+          Format.printf "AST:\n%s\n"
+            (String.concat "\n" (List.map Hp_ast.ast_to_string stmts))
       | "--llvm" ->
           let expr = Hp_read.hp_read filename in
-          let llvm_ast = Translate.translateGlobal expr in
-          Format.printf "LLVM:\n%s" (Llvm_ast.func_to_string llvm_ast)
+          let llvm_ast = Translate.translateHeaplang expr in
+          Format.printf "declare i8* @malloc(i64)\n%s"
+            (String.concat "\n" (List.map Llvm_ast.func_to_string llvm_ast))
       | _ -> Printf.eprintf "Unknown mode: %s. Use --ast or --llvm.\n" mode
     with
     | Failure msg -> prerr_endline ("Error: " ^ msg)

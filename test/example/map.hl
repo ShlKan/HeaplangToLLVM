@@ -1,2 +1,9 @@
 Definition get_left : val (* pair(int, int), int *) :=
   λ: "v", Fst "v".
+
+Definition f : val (* void, int *) :=
+rec: "f" "a" := #2.
+
+Definition main : val (* void, int *) :=
+rec: "main" "x" :=
+  let: "y" = f #() in #0.

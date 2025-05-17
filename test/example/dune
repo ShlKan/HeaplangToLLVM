@@ -2,5 +2,6 @@
  (package HeaplangToLLVM)
  (deps
   %{bin:HeaplangToLLVM}
+  run.sh
   (:hl
    (glob_files *.hl))))

@@ -29,26 +29,52 @@ else
 %token LPAREN RPAREN DOT COMMA FIRST SECOND
 %token EOF
 
+
+%nonassoc LOW_PRECEDENCE
 %left OR
 %left AND
 %left EQ LT
 %left PLUS MINUS
 %left TIMES DIV
-%nonassoc LOW_PRECEDENCE
+%left APP
 
-%start <expr> main
+
+
+
+
+%start <expr list> main
 %type <expr> expr
+%type <expr> stmt_expr
+%type <expr list> stmt_exprs
+%type <expr> app_expr
+%type <expr> bin_expr
+%type <expr> atom
+%type <string list> idents
+%type <htyp list> types
+%type <htyp> typ
 
 %%
 
 main:
-  | expr EOF { $1 }
+  | stmt_exprs EOF { $1 }
+
+stmt_exprs:
+  | stmt_exprs stmt_expr { $1 @ [ $2 ] }
+  | stmt_expr {  [ $1 ]  }
 
 expr:
-  | stmt_expr                  { $1 }
   | bin_expr                   { $1 }
-  | unary_expr                 { $1 }
+  | stmt_expr                  { $1 }
   | atom                       { $1 }
+  | app_expr                   { $1 }
+
+
+ app_expr:
+  | IDENT                        { Var $1 }
+  | app_expr expr       %prec APP         { App ($1, $2) }
+
+
+
 
 bin_expr:
   | expr OR expr                   { BinOp(OrOp, $1, $3) }
@@ -60,12 +86,10 @@ bin_expr:
   | expr TIMES expr                { BinOp(MultOp, $1, $3) }
   | expr DIV expr                  { BinOp(QuotOp, $1, $3) }
 
-unary_expr:
-  | REF expr %prec LOW_PRECEDENCE                     { AllocN(Val (LitV (LitInt 1)), $2) }
 
 stmt_expr:
-  | LET IDENT EQ expr IN expr %prec LOW_PRECEDENCE      { Let(Var $2, $4, $6) }
-  | IF expr THEN expr ELSE expr %prec LOW_PRECEDENCE    { If($2, $4, $6) }
+  | LET IDENT EQ expr IN expr  %prec LOW_PRECEDENCE    { Let(Var $2, $4, $6) }
+  | IF expr THEN expr ELSE expr  %prec LOW_PRECEDENCE  { If($2, $4, $6) }
   | DEFINITION IDENT COLON VAL LPAREN TIMES types TIMES RPAREN COLON
     EQ REC idents COLON EQ expr DOT  { gen_rec (BNamed $2) (List.tl $13) $7 $16 }
   | DEFINITION IDENT COLON VAL LPAREN TIMES types TIMES RPAREN COLON
@@ -86,12 +110,12 @@ idents:
   | idents IDENT             { $1 @ [$2] }
 
 atom:
-  | IDENT                          { Var($1) }
   | INT                            { Val (LitV (LitInt $1)) }
   | TRUE                           { Val (LitV (LitBool true)) }
   | FALSE                          { Val (LitV (LitBool false)) }
-  | UNIT                           { Val (LitV LitUnit) }
+  | UNIT                          { Val (LitV LitUnit) }
   | LPAREN expr COMMA expr RPAREN  { Pair($2, $4) }
   | LPAREN expr RPAREN             { $2 }
   | FIRST expr  %prec LOW_PRECEDENCE                   { Fst $2 }
   | SECOND expr    %prec LOW_PRECEDENCE                { Snd $2 }
+  | REF expr %prec LOW_PRECEDENCE                      { AllocN(Val (LitV (LitInt 1)), $2) }

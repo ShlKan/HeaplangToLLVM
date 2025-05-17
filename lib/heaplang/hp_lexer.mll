@@ -13,7 +13,7 @@ rule read = parse
     }
   | "true"                { TRUE }
   | "false"               { FALSE }
-  | "()"                  { UNIT }
+  | "#()"                  { UNIT }
   | "if:"                  { IF }
   | "then"                { THEN }
   | "else"                { ELSE }
