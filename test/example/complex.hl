@@ -1,0 +1,13 @@
+Definition foo : val (* int, int *) :=
+rec: "foo" "x" :=
+    let: "y" = "x" + #1 in
+    let: "z" = "x" + #2 in
+    print "z" ;;
+    "y".
+
+Definition main: val (* void, int *) :=
+ λ: "x",
+    let: "z" = #12 in
+    let: "res" = foo "z" in
+    print "res" ;;
+    #0.

@@ -119,7 +119,8 @@
     %x = alloca i32
     %tmp_0_0 = add i32 1, %z
     store i32 %tmp_0_0, i32* %x
-    ret i32 %z
+    %tmp_3_0 = load i32, i32* %x
+    ret i32 %tmp_3_0
   }
   $ HeaplangToLLVM --llvm print.hl
   declare i8* @malloc(i64)

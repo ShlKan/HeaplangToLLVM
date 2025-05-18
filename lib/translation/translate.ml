@@ -144,9 +144,9 @@ and translateBlock exp blks curr_blk =
               ]
           in
           translateBlock e2 blks curr_blk2
-      | BinOp (PlusOp, e1, e2) ->
-          let curr_blk1, operand1 = translateExpr e1 curr_blk in
-          let curr_blk2, operand2 = translateExpr e2 curr_blk1 in
+      | BinOp (PlusOp, op1, op2) ->
+          let curr_blk1, operand1 = translateExpr op1 curr_blk in
+          let curr_blk2, operand2 = translateExpr op2 curr_blk1 in
           let bin_op =
             BinOp (tmp_var curr_blk2, Add, operand1, operand2, decide_ty e1)
           in
