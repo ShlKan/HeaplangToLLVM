@@ -45,6 +45,7 @@ rule read = parse
   | "("                   { LPAREN }
   | ")"                   { RPAREN }
   | ":"                   { COLON }
+  | ";;"                  { SEMICOLON }
   | "#" (digit as i)        { INT (int_of_string i) }
   | ident as id           { IDENT id }
   | eof                   { EOF }

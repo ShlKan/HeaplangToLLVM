@@ -1,0 +1,5 @@
+Definition f : val (* int, int *) :=
+rec: "f" "z" :=
+let: "x" = #1 in
+print "x" ;;
+"x".

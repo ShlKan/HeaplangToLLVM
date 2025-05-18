@@ -22,7 +22,7 @@ else
 %token <string> IDENT
 %token TRUE FALSE UNIT
 %token IF THEN ELSE
-%token LET IN REC VAL DEFINITION COLON INTTYPE VOID PAIR FUN PRINT
+%token LET IN REC VAL DEFINITION COLON INTTYPE VOID PAIR FUN PRINT SEMICOLON
 %token LAMBDA REF
 %token PLUS MINUS TIMES DIV
 %token EQ LT AND OR
@@ -31,6 +31,8 @@ else
 
 
 %nonassoc LOW_PRECEDENCE
+%left SEMICOLON
+%nonassoc LOW_PRECEDENCE1
 %left OR
 %left AND
 %left EQ LT
@@ -85,6 +87,7 @@ bin_expr:
   | expr MINUS expr                { BinOp(MinusOp, $1, $3) }
   | expr TIMES expr                { BinOp(MultOp, $1, $3) }
   | expr DIV expr                  { BinOp(QuotOp, $1, $3) }
+  | expr SEMICOLON expr            { Seq ($1, $3) }
 
 
 stmt_expr:
@@ -94,7 +97,7 @@ stmt_expr:
     EQ REC idents COLON EQ expr DOT  { gen_rec (BNamed $2) (List.tl $13) $7 $16 }
   | DEFINITION IDENT COLON VAL LPAREN TIMES types TIMES RPAREN COLON
     EQ LAMBDA idents COMMA expr DOT  { gen_rec (BNamed $2) $13 $7 $15 }
-  | PRINT expr  %prec LOW_PRECEDENCE { Print $2 }
+  | PRINT expr  %prec LOW_PRECEDENCE1 { Print $2 }
 
 types:
   | types COMMA typ          { $1 @ [ $3 ] }

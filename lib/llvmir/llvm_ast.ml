@@ -27,7 +27,7 @@ type instruction =
   | Load of string option * operand * typ
   | Store of operand * typ * operand * typ
   | Alloca of string * typ
-  | Call of string option * string * (operand * typ) list * typ
+  | Call of string option * string * string * (operand * typ) list * typ
   | Ret of (operand * typ) option
   | Br of string
   | CondBr of operand * string * string
@@ -110,18 +110,23 @@ let rec instruction_to_string = function
       "store " ^ typ_to_string typ1 ^ " " ^ operand_to_string src ^ ", "
       ^ typ_to_string typ ^ " " ^ operand_to_string dst
   | Alloca (name, typ) -> local_var name ^ " = alloca " ^ typ_to_string typ
-  | Call (None, name, args, typ) ->
-      "call " ^ typ_to_string typ ^ " @" ^ name ^ "("
+  | Call (None, name, c_sig, args, typ) ->
+      "call " ^ typ_to_string typ
+      ^ (if c_sig = "" then "" else " " ^ c_sig)
+      ^ " @" ^ name ^ "("
       ^ String.concat ", " (List.map arg_to_string args)
       ^ ")"
-  | Call (Some varName, name, args, typ) ->
+  | Call (Some varName, name, c_sig, args, typ) ->
       if typ = Void then
-        "call " ^ typ_to_string typ ^ " @" ^ name ^ "("
+        "call " ^ typ_to_string typ
+        ^ (if c_sig = "" then "" else " " ^ c_sig)
+        ^ " @" ^ name ^ "("
         ^ String.concat ", " (List.map arg_to_string args)
         ^ ")"
       else
-        local_var varName ^ " = call " ^ typ_to_string typ ^ " @" ^ name
-        ^ "("
+        local_var varName ^ " = call " ^ typ_to_string typ
+        ^ (if c_sig = "" then "" else " " ^ c_sig)
+        ^ " @" ^ name ^ "("
         ^ String.concat ", " (List.map arg_to_string args)
         ^ ")"
   | Ret None -> "ret void"

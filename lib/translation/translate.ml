@@ -5,6 +5,8 @@ open Llvm_ast
 
 let var_type = Hashtbl.create 10
 
+let param_type = Hashtbl.create 10
+
 let tmp_var ?(step = 0) blk =
   let index = List.length blk.instructions in
   let var_name = Printf.sprintf "tmp_%d_%d" index step in
@@ -30,7 +32,12 @@ let rec decide_ty e =
   | Var v -> (
     match Hashtbl.find_opt var_type v with
     | Some typ -> typ
-    | None -> failwith ("Variable " ^ v ^ " not found in type table") )
+    | None -> (
+      match Hashtbl.find_opt param_type v with
+      | Some typ -> typ
+      | None ->
+          (* TODO: consider the type of the variable *)
+          failwith ("Variable " ^ v ^ " not found in type table") ) )
   (* TODO: consider sz with the type. Currently, only sz = 1 is supported. *)
   | AllocN (_sz, expr) ->
       let typ = decide_ty expr in
@@ -78,13 +85,13 @@ and translateApp app varName curr_blk =
       let curr_blk1, arg_exp = translateExpr arg curr_blk in
       let curr_blk2, call_expr = translateApp f varName curr_blk1 in
       match call_expr with
-      | Call (varName, fun_name, args, ret_typ) ->
+      | Call (varName, fun_name, "", args, ret_typ) ->
           ( curr_blk2
-          , Call (varName, fun_name, args @ [(arg_exp, typ)], ret_typ) )
+          , Call (varName, fun_name, "", args @ [(arg_exp, typ)], ret_typ) )
       | _ -> failwith "Expected a function call" )
   | Var fun_name ->
       let ret_typ = decide_ty (Var fun_name) in
-      (curr_blk, Call (varName, fun_name, [], ret_typ))
+      (curr_blk, Call (varName, fun_name, "", [], ret_typ))
   | _ -> failwith "Expected an application"
 
 and translateGlobal exp =
@@ -111,11 +118,11 @@ and translateGlobal exp =
         let f = {name= f; ret_type= ret_typ; params= []; basic_blocks= []} in
         aux body f
       else (
-        Hashtbl.add var_type x param_typ ;
+        Hashtbl.add param_type x param_typ ;
         let f =
           { name= f
           ; ret_type= ret_typ
-          ; params= [(x, Pointer param_typ)]
+          ; params= [(x, param_typ)]
           ; basic_blocks= [] }
         in
         aux body f )
@@ -227,7 +234,7 @@ and translateBlock exp blks curr_blk =
           in
           let curr_blk5 =
             extend_blk curr_blk4
-              [ Call (Some varName, "malloc", [(operand, Int 64)], typ)
+              [ Call (Some varName, "malloc", "", [(operand, Int 64)], typ)
               ; GetElementPtr
                   ( Some (tmp_var curr_blk4)
                   , LocalVar (tmp_var ~step:1 curr_blk3)
@@ -247,7 +254,7 @@ and translateBlock exp blks curr_blk =
           let typ1 = decide_ty value in
           let curr_blk3 =
             extend_blk curr_blk2
-              [ Call (Some varName, "malloc", [(operand, Int 64)], typ)
+              [ Call (Some varName, "malloc", "", [(operand, Int 64)], typ)
               ; GetElementPtr
                   ( Some (tmp_var curr_blk2)
                   , LocalVar varName
@@ -269,7 +276,7 @@ and translateBlock exp blks curr_blk =
           let typ = decide_ty f in
           let curr_blk1, _ = translateApp (App (f, arg)) None curr_blk in
           let curr_blk2, operand1 =
-            translateApp (App (f, arg)) (Some (tmp_var curr_blk1)) curr_blk1
+            translateApp (App (f, arg)) (Some (tmp_var curr_blk1)) curr_blk
           in
           let curr_blk3 =
             extend_blk curr_blk2
@@ -282,7 +289,7 @@ and translateBlock exp blks curr_blk =
                   , Pointer typ ) ]
           in
           translateBlock e2 blks curr_blk3
-      | _ -> failwith "Translation not implemented for this expression" )
+      | _ -> failwith "Translation not implemented for this expression Let" )
   | Print v ->
       let curr_blk1, operand = translateExpr v curr_blk in
       let curr_blk2 =
@@ -295,10 +302,10 @@ and translateBlock exp blks curr_blk =
           ; Call
               ( Some (tmp_var ~step:1 curr_blk1)
               , "printf"
+              , "(i8*, ...)"
               , [ (LocalVar (tmp_var curr_blk1), Pointer (Int 8))
                 ; (operand, decide_ty v) ]
-              , Int 32 )
-          ; Ret (Some (LocalVar (tmp_var ~step:1 curr_blk1), Int 32)) ]
+              , Int 32 ) ]
       in
       blks @ [curr_blk2]
   | Var v ->
@@ -349,6 +356,10 @@ and translateBlock exp blks curr_blk =
       [ extend_blk curr_blk2
           [bin_op; Ret (Some (LocalVar (tmp_var curr_blk1), decide_ty e1))]
       ]
+  | Seq (e1, e2) ->
+      let blks1 = translateBlock e1 blks curr_blk in
+      let blks2 = translateBlock e2 blks (List.hd (List.rev blks1)) in
+      blks2
   | _ ->
       Format.printf "%s\n" (Hp_ast.ast_to_string exp) ;
       failwith "Translation not implemented for this statement"
@@ -358,11 +369,19 @@ and translateBlock exp blks curr_blk =
 and translateExpr e curr_blk =
   match e with
   | Val v -> (curr_blk, translateVal v)
-  | Var v ->
-      ( extend_blk curr_blk
-          [Load (Some (tmp_var curr_blk), LocalVar v, decide_ty (Var v))]
-      , LocalVar (tmp_var curr_blk) )
-  | _ -> failwith "Translation not implemented for this expression"
+  | Var v -> (
+    match Hashtbl.find_opt var_type v with
+    | Some typ ->
+        ( extend_blk curr_blk
+            [Load (Some (tmp_var curr_blk), LocalVar v, typ)]
+        , LocalVar (tmp_var curr_blk) )
+    | None -> (
+      match Hashtbl.find_opt param_type v with
+      | Some _ -> (curr_blk, LocalVar v)
+      | None -> failwith ("Variable " ^ v ^ " not found in type table") ) )
+  | _ ->
+      Format.printf "%s\n" (Hp_ast.ast_to_string e) ;
+      failwith "Translation not implemented for this expression"
 
 (* Translate Heaplang values to LLVM IR operands *)
 
