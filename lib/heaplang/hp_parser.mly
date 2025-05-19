@@ -26,13 +26,14 @@ else
 %token LAMBDA REF
 %token PLUS MINUS TIMES DIV
 %token EQ LT AND OR
-%token LPAREN RPAREN DOT COMMA FIRST SECOND BANG
+%token LPAREN RPAREN DOT COMMA FIRST SECOND BANG ASSIGN
 %token EOF
 
 
 %nonassoc LOW_PRECEDENCE
 %left SEMICOLON
 %nonassoc LOW_PRECEDENCE1
+%left ASSIGN
 %left OR
 %left AND
 %left EQ LT
@@ -98,6 +99,7 @@ stmt_expr:
   | DEFINITION IDENT COLON VAL LPAREN TIMES types TIMES RPAREN COLON
     EQ LAMBDA idents COMMA expr DOT  { gen_rec (BNamed $2) $13 $7 $15 }
   | PRINT expr  %prec LOW_PRECEDENCE1 { Print $2 }
+  | expr ASSIGN expr  %prec LOW_PRECEDENCE1 { Store ($1, $3) }
 
 types:
   | types COMMA typ          { $1 @ [ $3 ] }

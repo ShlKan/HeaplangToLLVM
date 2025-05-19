@@ -25,3 +25,5 @@
   Successfully executed ./print.hl
   32
   Successfully executed ./seq.hl
+  35
+  Successfully executed ./store.hl

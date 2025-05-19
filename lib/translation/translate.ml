@@ -352,6 +352,12 @@ and translateBlock exp blks curr_blk =
               , Int 32 ) ]
       in
       blks @ [curr_blk2]
+  | Store (e1, e2) ->
+      let curr_blk1, operand1 = translateExpr e1 curr_blk in
+      let curr_blk2, operand2 = translateExpr e2 curr_blk1 in
+      blks
+      @ [ extend_blk curr_blk2
+            [Store (operand2, decide_ty e2, operand1, decide_ty e1)] ]
   | Var v ->
       let typ = decide_ty (Var v) in
       let curr_blk1, operand = translateExpr (Var v) curr_blk in

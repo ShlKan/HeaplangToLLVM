@@ -1,0 +1,10 @@
+Definition f : val (* void, int *) :=
+rec: "f" "a" :=
+let: "x" := ref #23 in
+"x" <- #35 ;; ! "x".
+
+Definition main : val (* void, int *) :=
+rec: "f" "x" :=
+  let: "a" := f #() in
+  print "a" ;;
+  #0.

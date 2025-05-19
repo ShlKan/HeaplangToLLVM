@@ -34,6 +34,7 @@ rule read = parse
   | "fun"                { FUN }
   | "λ" | "fun"           { LAMBDA }
   | "="                   { EQ }
+  | "<-"                   { ASSIGN }
   | "<"                   { LT }
   | "&&"                  { AND }
   | "||"                  { OR }
