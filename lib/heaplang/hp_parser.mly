@@ -31,6 +31,8 @@ else
 
 
 %nonassoc LOW_PRECEDENCE
+%left LOW_PRECEDENCE_LEFT
+%nonassoc UNIT TRUE FALSE SECOND REF LPAREN INT IDENT FIRST BANG
 %left SEMICOLON
 %nonassoc LOW_PRECEDENCE1
 %left ASSIGN
@@ -40,7 +42,6 @@ else
 %left PLUS MINUS
 %left TIMES DIV
 %left APP
-
 
 
 
@@ -63,19 +64,19 @@ main:
 
 stmt_exprs:
   | stmt_exprs stmt_expr { $1 @ [ $2 ] }
-  | stmt_expr {  [ $1 ]  }
+  | stmt_expr            {  [ $1 ]  }
 
 expr:
-  | bin_expr                   { $1 }
-  | stmt_expr                  { $1 }
-  | atom                       { $1 }
-  | app_expr                   { $1 }
+  | stmt_expr                                       { $1 }
+  | bin_expr                                        { $1 }
+  | atom                                            { $1 }
+  | app_expr           %prec  LOW_PRECEDENCE_LEFT   { $1 }
 
 
  app_expr:
-  | IDENT                        { Var $1 }
-  | app_expr expr       %prec APP         { App ($1, $2) }
-
+  | IDENT                                 { Var $1 }
+  | app_expr IDENT                        { App ($1, Var $2) }
+  | app_expr atom                         { App ($1, $2) }
 
 
 
@@ -98,8 +99,8 @@ stmt_expr:
     EQ REC idents COLON EQ expr DOT  { gen_rec (BNamed $2) (List.tl $13) $7 $16 }
   | DEFINITION IDENT COLON VAL LPAREN TIMES types TIMES RPAREN COLON
     EQ LAMBDA idents COMMA expr DOT  { gen_rec (BNamed $2) $13 $7 $15 }
-  | PRINT expr  %prec LOW_PRECEDENCE1 { Print $2 }
   | expr ASSIGN expr  %prec LOW_PRECEDENCE1 { Store ($1, $3) }
+  | PRINT expr    %prec APP { Print $2 }
 
 types:
   | types COMMA typ          { $1 @ [ $3 ] }
@@ -120,7 +121,7 @@ atom:
   | INT                            { Val (LitV (LitInt $1)) }
   | TRUE                           { Val (LitV (LitBool true)) }
   | FALSE                          { Val (LitV (LitBool false)) }
-  | UNIT                          { Val (LitV LitUnit) }
+  | UNIT                           { Val (LitV LitUnit) }
   | LPAREN expr COMMA expr RPAREN  { Pair($2, $4) }
   | LPAREN expr RPAREN             { $2 }
   | FIRST expr  %prec LOW_PRECEDENCE                   { Fst $2 }

@@ -167,12 +167,13 @@
     %tmp_3_0 = add i32 %tmp_2_0, 1
     store i32 %tmp_3_0, i32* %y
     %tmp_6_0 = load i32, i32* %y
-    %tmp_7_0 = call i32 @f(i32 4, i32 %tmp_6_0)
+    %tmp_7_0 = load i32, i32* %y
+    %tmp_8_0 = call i32 @f(i32 %tmp_7_0, i32 %tmp_6_0)
     %z = alloca i32
-    store i32 %tmp_7_0, i32* %z
-    %tmp_10_0 = load i32, i32* %z
-    %tmp_11_0 = getelementptr [4 x i8], [4 x i8]* @.str, i32 0, i32 0
-    %tmp_11_1 = call i32 (i8*, ...) @printf(i8* %tmp_11_0, i32 %tmp_10_0)
+    store i32 %tmp_8_0, i32* %z
+    %tmp_11_0 = load i32, i32* %z
+    %tmp_12_0 = getelementptr [4 x i8], [4 x i8]* @.str, i32 0, i32 0
+    %tmp_12_1 = call i32 (i8*, ...) @printf(i8* %tmp_12_0, i32 %tmp_11_0)
     ret i32 0
   }
   $ HeaplangToLLVM --llvm call.hl

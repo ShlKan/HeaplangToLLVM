@@ -7,5 +7,5 @@ Definition main: val (* void, int *) :=
 rec: "main" "vd" :=
 let: "x" := #1 in
 let: "y" := "x" + #1 in
-let: "z" := f #4 "y" in
+let: "z" := f "y" "y" in
 print "z" ;; #0.
