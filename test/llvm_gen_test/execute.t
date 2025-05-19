@@ -15,6 +15,10 @@
   Successfully executed ./pair1.hl
   12
   Successfully executed ./pair2.hl
+  1
+  2
+  3
+  Successfully executed ./pair3.hl
   13
   Successfully executed ./plus.hl
   1
