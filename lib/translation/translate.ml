@@ -440,6 +440,39 @@ and translateExpr e curr_blk =
         Icmp (tmp_var curr_blk2, "eq", operand1, operand2, decide_ty e1)
       in
       (extend_blk curr_blk2 [cmp_op], LocalVar (tmp_var curr_blk2))
+  | Snd e ->
+      let curr_blk1, operand = translateExpr e curr_blk in
+      let typ = decide_ty e in
+      ( extend_blk curr_blk1
+          [ExtractValue (Some (tmp_var curr_blk1), operand, 1, typ)]
+      , LocalVar (tmp_var curr_blk1) )
+  | Fst e ->
+      let curr_blk1, operand = translateExpr e curr_blk in
+      let typ = decide_ty e in
+      ( extend_blk curr_blk1
+          [ExtractValue (Some (tmp_var curr_blk1), operand, 0, typ)]
+      , LocalVar (tmp_var curr_blk1) )
+  | Pair (v1, v2) ->
+      let curr_blk1, operand1 = translateExpr v1 curr_blk in
+      let curr_blk2, operand2 = translateExpr v2 curr_blk1 in
+      let pair_op =
+        InsertValue
+          ( tmp_var curr_blk2
+          , Undef
+          , (operand1, decide_ty v1)
+          , 0
+          , decide_ty (Pair (v1, v2)) )
+      in
+      let pair_op2 =
+        InsertValue
+          ( tmp_var ~step:1 curr_blk2
+          , LocalVar (tmp_var curr_blk2)
+          , (operand2, decide_ty v2)
+          , 1
+          , decide_ty (Pair (v1, v2)) )
+      in
+      ( extend_blk curr_blk2 [pair_op; pair_op2]
+      , LocalVar (tmp_var ~step:1 curr_blk2) )
   | _ ->
       Format.printf "%s\n" (Hp_ast.ast_to_string e) ;
       failwith "Translation not implemented for this expression"

@@ -22,7 +22,7 @@ else
 %token <string> IDENT
 %token TRUE FALSE UNIT
 %token IF THEN ELSE
-%token LET IN REC VAL DEFINITION COLON INTTYPE VOID PAIR FUN PRINT SEMICOLON
+%token LET IN REC VAL DEFINITION COLON INTTYPE VOID PAIR FUN PRINT SEMICOLON LOC
 %token LAMBDA REF
 %token PLUS MINUS TIMES DIV
 %token EQ LT AND OR
@@ -108,6 +108,7 @@ typ:
   | VOID                        { TUnit }
   | PAIR LPAREN typ COMMA typ RPAREN  { TPair ($3, $5) }
   | FUN LPAREN types RPAREN  { TFun $3 }
+  | LOC  { TLoc }
 
 idents:
   | IDENT                          { [ $1 ] }

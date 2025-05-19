@@ -1,0 +1,23 @@
+Definition get_left : val (* pair (loc, pair(int, loc)), loc *) :=
+  λ: "v", Fst "v".
+
+Definition get_right : val (* pair (loc, pair(int, loc)), loc *) :=
+  λ: "v", Snd (Snd "v").
+
+Definition get_mid : val (* pair (loc, pair(int, loc)), int *):=
+  λ: "v", Fst (Snd "v").
+
+Definition main : val (* void, int *) :=
+rec: "main" "vd" :=
+  let: "l" := ref #1 in
+  let: "r" := ref #3 in
+  let: "t" := ("l", (#2, "r")) in
+  let: "lptr" := (get_left "t") in
+  let: "lv" := ! "lptr" in
+  let: "data" := (get_mid "t") in
+  let: "rptr" := (get_right "t") in
+  let: "rv" := ! "rptr" in
+  print "lv" ;;
+  print "data" ;;
+  print "rv";;
+  #0.

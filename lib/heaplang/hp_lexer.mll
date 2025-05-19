@@ -30,6 +30,7 @@ rule read = parse
   | "int"                { INTTYPE }
   | "void"                { VOID }
   | "pair"                { PAIR }
+  | "loc"                { LOC }
   | "fun"                { FUN }
   | "λ" | "fun"           { LAMBDA }
   | "="                   { EQ }
