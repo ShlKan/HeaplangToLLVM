@@ -1,4 +1,9 @@
 Definition f : val (* int, int *) :=
 rec: "f" "a" :=
-let: "x" = "a" in
-if: "x" then #1 else #2.
+let: "x" := "a" in
+if: "x" = #2 then #1 else #2.
+
+Definition main: val (* void, int *) :=
+rec: "main" "x" :=
+let: "a" := f #2 in
+print "a" ;; #0.

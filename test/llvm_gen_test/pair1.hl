@@ -1,5 +1,13 @@
 Definition f : val (* int, int *) :=
 rec: "f" "z" :=
-let: "x" = ref (#1, "z") in
-let: "y" = (#12, "x") in 
-"y".
+let: "x" := ref (#1, "z") in
+let: "y" := (#12, "x") in
+let: "z1" := Snd "y" in
+let: "z2" := ! "z1" in
+let: "z3" := Snd "z2" in
+print "z3";;
+#0.
+
+Definition main : val (* void, int *) :=
+rec: "main" "vod" :=
+let: "x" := f #2 in #0.

@@ -1,11 +1,11 @@
 Definition f : val (* int, int *) :=
 rec: "f" "z" :=
-let: "x" = #123 in
+let: "x" := #123 in
 print "x";;
 #0.
 
 Definition main : val (* void, int *) :=
 λ: "v",
-  let: "x" = #1 in
-  let: "y" = f "x" in
+  let: "x" := #1 in
+  let: "y" := f "x" in
   "y".

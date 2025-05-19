@@ -1,5 +1,10 @@
 Definition f : val (* int, int *) :=
 rec: "f" "z" :=
-let: "x" = #1 in
+let: "x" := "z" in
 print "x" ;;
 "x".
+
+Definition main: val (* int, int *) :=
+rec: "main" "vd" :=
+let: "x" := f #32 in
+#0.

@@ -1,7 +1,9 @@
-Definition f : val (* void, int *) :=
+Definition f : val (* int, int *) :=
 rec: "f" "a" :=
-let: "x" = ref #23 in "x".
+let: "x" := ref "a" in !"x".
 
 Definition main : val (* void, int *) :=
 rec: "main" "x" :=
-    f #().
+let: "a" := f #45 in 
+print "a";;
+#0.

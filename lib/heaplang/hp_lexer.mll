@@ -29,7 +29,7 @@ rule read = parse
   | "in"                  { IN }
   | "int"                { INTTYPE }
   | "void"                { VOID }
-  | "pair"             { PAIR }
+  | "pair"                { PAIR }
   | "fun"                { FUN }
   | "λ" | "fun"           { LAMBDA }
   | "="                   { EQ }
@@ -45,6 +45,7 @@ rule read = parse
   | "("                   { LPAREN }
   | ")"                   { RPAREN }
   | ":"                   { COLON }
+  | "!"                   { BANG }
   | ";;"                  { SEMICOLON }
   | "#" (digit as i)        { INT (int_of_string i) }
   | ident as id           { IDENT id }

@@ -26,7 +26,7 @@ else
 %token LAMBDA REF
 %token PLUS MINUS TIMES DIV
 %token EQ LT AND OR
-%token LPAREN RPAREN DOT COMMA FIRST SECOND
+%token LPAREN RPAREN DOT COMMA FIRST SECOND BANG
 %token EOF
 
 
@@ -91,7 +91,7 @@ bin_expr:
 
 
 stmt_expr:
-  | LET IDENT EQ expr IN expr  %prec LOW_PRECEDENCE    { Let(Var $2, $4, $6) }
+  | LET IDENT COLON EQ expr IN expr  %prec LOW_PRECEDENCE    { Let(Var $2, $5, $7) }
   | IF expr THEN expr ELSE expr  %prec LOW_PRECEDENCE  { If($2, $4, $6) }
   | DEFINITION IDENT COLON VAL LPAREN TIMES types TIMES RPAREN COLON
     EQ REC idents COLON EQ expr DOT  { gen_rec (BNamed $2) (List.tl $13) $7 $16 }
@@ -123,3 +123,4 @@ atom:
   | FIRST expr  %prec LOW_PRECEDENCE                   { Fst $2 }
   | SECOND expr    %prec LOW_PRECEDENCE                { Snd $2 }
   | REF expr %prec LOW_PRECEDENCE                      { AllocN(Val (LitV (LitInt 1)), $2) }
+  | BANG expr %prec LOW_PRECEDENCE                     { Load $2 }

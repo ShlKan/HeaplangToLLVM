@@ -3,7 +3,7 @@ Definition get_right : val (* pair(int, int), int *) :=
 
 Definition main : val (* void, int *) :=
   λ: "v",
-  let: "x" = (#1, #2) in
-  let: "y" = Fst "x" in
-  let: "z" = Snd "x" in
+  let: "x" := (#1, #2) in
+  let: "y" := Fst "x" in
+  let: "z" := Snd "x" in
   #0.

@@ -24,6 +24,7 @@ type gep_index = IndexConst of int | IndexVar of operand
 
 type instruction =
   | BinOp of string * binop * operand * operand * typ
+  | Icmp of string * string * operand * operand * typ (* Added for icmp *)
   | Load of string option * operand * typ
   | Store of operand * typ * operand * typ
   | Alloca of string * typ
@@ -170,6 +171,9 @@ let rec instruction_to_string = function
       ^ " "
       ^ operand_to_string (fst val_op)
       ^ ", " ^ string_of_int idx
+  | Icmp (name, cond, lhs, rhs, typ) ->
+      local_var name ^ " = icmp " ^ cond ^ " " ^ typ_to_string typ ^ " "
+      ^ operand_to_string lhs ^ ", " ^ operand_to_string rhs
   | Assert (cond, msg) ->
       "assert " ^ operand_to_string cond ^ " \"" ^ msg ^ "\""
 

@@ -42,6 +42,11 @@ let rec decide_ty e =
   | AllocN (_sz, expr) ->
       let typ = decide_ty expr in
       Pointer typ
+  | Load ptr -> (
+      let typ = decide_ty ptr in
+      match typ with
+      | Pointer ptyp -> ptyp
+      | _ -> failwith "Expected a pointer type for Load" )
   | BinOp (PlusOp, e1, _e2) -> decide_ty e1
   | Pair (v1, v2) ->
       let typ1 = decide_ty v1 in
@@ -100,7 +105,7 @@ and translateGlobal exp =
     | Rec (BAnon, BNamed x, body, TFun typs) ->
         let param_typ = translateType (List.hd typs) in
         let ret_typ = translateType (List.hd (List.tl typs)) in
-        Hashtbl.add var_type x param_typ ;
+        Hashtbl.add param_type x param_typ ;
         aux body
           {ff with ret_type= ret_typ; params= ff.params @ [(x, param_typ)]}
     | _ ->
@@ -189,6 +194,23 @@ and translateBlock exp blks curr_blk =
                   , Pointer typ ) ]
           in
           translateBlock e2 blks curr_blk2
+      | Load ptr -> (
+          let typ = decide_ty ptr in
+          match typ with
+          | Pointer typ ->
+              let curr_blk1, operand = translateExpr ptr curr_blk in
+              let curr_blk2 =
+                extend_blk curr_blk1
+                  [ Alloca (varName, typ)
+                  ; Load (Some (tmp_var curr_blk1), operand, typ)
+                  ; Store
+                      ( LocalVar (tmp_var curr_blk1)
+                      , typ
+                      , LocalVar varName
+                      , Pointer typ ) ]
+              in
+              translateBlock e2 blks curr_blk2
+          | _ -> failwith "Expected a pointer type for Load" )
       | Pair (v1, v2) ->
           let curr_blk1, operand1 = translateExpr v1 curr_blk in
           let curr_blk2, operand2 = translateExpr v2 curr_blk1 in
@@ -218,7 +240,7 @@ and translateBlock exp blks curr_blk =
           let curr_blk3, operand2 = translateExpr v2 curr_blk2 in
           let curr_blk4 =
             extend_blk curr_blk3
-              [ Alloca (varName, typ1)
+              [ Alloca (varName, typ)
               ; InsertValue
                   ( tmp_var curr_blk3
                   , Undef
@@ -227,24 +249,34 @@ and translateBlock exp blks curr_blk =
                   , typ1 )
               ; InsertValue
                   ( tmp_var ~step:1 curr_blk3
-                  , LocalVar varName
+                  , LocalVar (tmp_var curr_blk3)
                   , (operand2, decide_ty v2)
                   , 1
                   , typ1 ) ]
           in
           let curr_blk5 =
             extend_blk curr_blk4
-              [ Call (Some varName, "malloc", "", [(operand, Int 64)], typ)
-              ; GetElementPtr
+              [ Call
                   ( Some (tmp_var curr_blk4)
-                  , LocalVar (tmp_var ~step:1 curr_blk3)
-                  , [IndexConst 0]
+                  , "malloc"
+                  , ""
+                  , [(operand, Int 64)]
                   , typ )
+              ; GetElementPtr
+                  ( Some (tmp_var ~step:1 curr_blk4)
+                  , LocalVar (tmp_var curr_blk4)
+                  , [IndexConst 0]
+                  , typ1 )
               ; Store
                   ( LocalVar (tmp_var ~step:1 curr_blk3)
                   , typ1
-                  , LocalVar (tmp_var curr_blk4)
-                  , typ ) ]
+                  , LocalVar (tmp_var ~step:1 curr_blk4)
+                  , typ )
+              ; Store
+                  ( LocalVar (tmp_var curr_blk4)
+                  , typ
+                  , LocalVar varName
+                  , Pointer typ ) ]
           in
           translateBlock e2 blks curr_blk5
       | AllocN (sz, value) ->
@@ -254,13 +286,25 @@ and translateBlock exp blks curr_blk =
           let typ1 = decide_ty value in
           let curr_blk3 =
             extend_blk curr_blk2
-              [ Call (Some varName, "malloc", "", [(operand, Int 64)], typ)
-              ; GetElementPtr
+              [ Alloca (varName, typ)
+              ; Call
                   ( Some (tmp_var curr_blk2)
+                  , "malloc"
+                  , ""
+                  , [(operand, Int 64)]
+                  , typ )
+              ; Store
+                  ( LocalVar (tmp_var curr_blk2)
+                  , typ
                   , LocalVar varName
+                  , Pointer typ )
+              ; GetElementPtr
+                  ( Some (tmp_var ~step:1 curr_blk2)
+                  , LocalVar (tmp_var curr_blk2)
                   , [IndexConst 0]
                   , typ1 )
-              ; Store (valu, typ1, LocalVar (tmp_var curr_blk2), typ) ]
+              ; Store (valu, typ1, LocalVar (tmp_var ~step:1 curr_blk2), typ)
+              ]
           in
           translateBlock e2 blks curr_blk3
       | Var _ ->
@@ -360,11 +404,21 @@ and translateBlock exp blks curr_blk =
       let blks1 = translateBlock e1 blks curr_blk in
       let blks2 = translateBlock e2 blks (List.hd (List.rev blks1)) in
       blks2
+  | Load ptr -> (
+      let typ = decide_ty ptr in
+      match typ with
+      | Pointer ptyp ->
+          let curr_blk1, operand = translateExpr ptr curr_blk in
+          let curr_blk2 =
+            extend_blk curr_blk1
+              [ Load (Some (tmp_var curr_blk1), operand, ptyp)
+              ; Ret (Some (LocalVar (tmp_var curr_blk1), ptyp)) ]
+          in
+          blks @ [curr_blk2]
+      | _ -> failwith "Expected a pointer type for Load" )
   | _ ->
       Format.printf "%s\n" (Hp_ast.ast_to_string exp) ;
       failwith "Translation not implemented for this statement"
-
-(* Add more translation cases as needed *)
 
 and translateExpr e curr_blk =
   match e with
@@ -379,6 +433,13 @@ and translateExpr e curr_blk =
       match Hashtbl.find_opt param_type v with
       | Some _ -> (curr_blk, LocalVar v)
       | None -> failwith ("Variable " ^ v ^ " not found in type table") ) )
+  | BinOp (EqOp, e1, e2) ->
+      let curr_blk1, operand1 = translateExpr e1 curr_blk in
+      let curr_blk2, operand2 = translateExpr e2 curr_blk1 in
+      let cmp_op =
+        Icmp (tmp_var curr_blk2, "eq", operand1, operand2, decide_ty e1)
+      in
+      (extend_blk curr_blk2 [cmp_op], LocalVar (tmp_var curr_blk2))
   | _ ->
       Format.printf "%s\n" (Hp_ast.ast_to_string e) ;
       failwith "Translation not implemented for this expression"
