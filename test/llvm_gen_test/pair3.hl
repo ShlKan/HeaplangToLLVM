@@ -1,10 +1,10 @@
-Definition get_left : val (* pair (loc, pair(int, loc)), loc *) :=
+Definition get_left : val (* pair (loc int, pair(int, loc int)), loc int *) :=
   λ: "v", Fst "v".
 
-Definition get_right : val (* pair (loc, pair(int, loc)), loc *) :=
+Definition get_right : val (* pair (loc int, pair(int, loc int)), loc int *) :=
   λ: "v", Snd (Snd "v").
 
-Definition get_mid : val (* pair (loc, pair(int, loc)), int *):=
+Definition get_mid : val (* pair (loc int, pair(int, loc int)), int *):=
   λ: "v", Fst (Snd "v").
 
 Definition main : val (* void, int *) :=

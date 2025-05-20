@@ -176,5 +176,5 @@ if_null:
 if_not_null:
     %v = extractvalue %opt_pair %res, 1
     call i32 (i8*, ...) @printf(i8* %cast210,  i32 %v)
-    ret i32 0   
+    ret i32 0
 }

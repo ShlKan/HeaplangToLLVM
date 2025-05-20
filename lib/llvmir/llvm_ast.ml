@@ -7,6 +7,7 @@ type typ =
   | Array of int * typ
   | Struct of typ list
   | Function of typ list * typ
+  | LVar of string
   | Pair of typ * typ (* Represents a pair type *)
 
 type operand =
@@ -57,11 +58,15 @@ type func =
 
 type global_var = {name: string; typ: typ; value: operand option}
 
-type llvm_module = {globals: global_var list; functions: func list}
+type user_ty = {name: string; typ: typ}
+
+type llvm_module =
+  {globals: global_var list; user_typs: user_ty list; functions: func list}
 
 let rec typ_to_string = function
   | Void -> "void"
   | Int n -> "i" ^ string_of_int n
+  | LVar name -> "%" ^ name
   | Float -> "float"
   | Double -> "double"
   | Pointer t -> typ_to_string t ^ "*"
@@ -203,10 +208,25 @@ let global_var_to_string {name; typ; value} =
   "@" ^ name ^ " = global " ^ typ_to_string typ
   ^ match value with None -> "" | Some v -> " " ^ operand_to_string v
 
-let llvm_module_to_string {globals; functions} =
-  String.concat "\n" (List.map global_var_to_string globals)
-  ^ "\n\n"
-  ^ String.concat "\n\n" (List.map func_to_string functions)
+let llvm_module_to_string {globals; user_typs; functions} =
+  let user_typs_str =
+    String.concat "\n"
+      (List.map
+         (fun {name; typ} -> "%" ^ name ^ " = type " ^ typ_to_string typ)
+         user_typs )
+  in
+  let globals_str =
+    String.concat "\n" (List.map global_var_to_string globals)
+  in
+  let functions_str =
+    String.concat "\n\n" (List.map func_to_string functions)
+  in
+  String.concat "\n\n"
+    (List.filter
+       (fun s -> s <> "")
+       [user_typs_str; globals_str; functions_str] )
+
+let print_llvm_module m = print_endline (llvm_module_to_string m)
 
 let instructions_to_string instructions =
   String.concat "\n" (List.map instruction_to_string instructions)

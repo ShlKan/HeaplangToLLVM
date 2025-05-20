@@ -12,6 +12,7 @@
     %tmp_5_0 = load i32, i32* %y
     ret i32 %tmp_5_0
   }
+  
   define i32 @main() {
   entry:
     %tmp_0_0 = call i32 @f(i32 123)
@@ -38,6 +39,7 @@
     %tmp_6_0 = load i32, i32* %tmp_5_0
     ret i32 %tmp_6_0
   }
+  
   define i32 @main() {
   entry:
     %tmp_0_0 = call i32 @f()
@@ -65,6 +67,7 @@
   else:
     ret i32 2
   }
+  
   define i32 @main() {
   entry:
     %tmp_0_0 = call i32 @f(i32 2)
@@ -111,6 +114,7 @@
     %tmp_25_1 = call i32 (i8*, ...) @printf(i8* %tmp_25_0, i32 %tmp_24_0)
     ret i32 0
   }
+  
   define i32 @main() {
   entry:
     %tmp_0_0 = call i32 @f(i32 2)
@@ -135,6 +139,7 @@
     %tmp_8_0 = load i32, i32* %y
     ret i32 %tmp_8_0
   }
+  
   define i32 @main() {
   entry:
     %tmp_0_0 = call i32 @f(i32 12)
@@ -158,6 +163,7 @@
     %tmp_4_0 = load i32, i32* %x
     ret i32 %tmp_4_0
   }
+  
   define i32 @main() {
   entry:
     %x = alloca i32
@@ -191,6 +197,7 @@
     %tmp_6_0 = load i32, i32* %tmp_5_0
     ret i32 %tmp_6_0
   }
+  
   define i32 @main() {
   entry:
     %tmp_0_0 = call i32 @f(i32 45)
@@ -213,6 +220,7 @@
     %tmp_3_0 = load i32, i32* %x
     ret i32 %tmp_3_0
   }
+  
   define i32 @main() {
   entry:
     %tmp_0_0 = call i32 @f(i32 12)
@@ -236,6 +244,7 @@
     %tmp_3_1 = call i32 (i8*, ...) @printf(i8* %tmp_3_0, i32 %tmp_2_0)
     ret i32 2
   }
+  
   define i32 @main() {
   entry:
     %tmp_0_0 = call i32 @f(i32 22)
@@ -257,6 +266,7 @@
     %tmp_5_0 = load i32, i32* %x
     ret i32 %tmp_5_0
   }
+  
   define i32 @main(i32 %vd) {
   entry:
     %tmp_0_0 = call i32 @f(i32 32)
@@ -279,6 +289,7 @@
     %tmp_6_0 = load i32, i32* %tmp_5_0
     ret i32 %tmp_6_0
   }
+  
   define i32 @main() {
   entry:
     %tmp_0_0 = call i32 @f()

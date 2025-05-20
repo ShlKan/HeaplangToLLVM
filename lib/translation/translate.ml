@@ -45,7 +45,9 @@ let rec decide_ty e =
       | None -> (
         match Hashtbl.find_opt fun_type v with
         | Some typ -> typ
-        | None -> failwith "Fail to find variable type" ) ) )
+        | None ->
+            Format.printf "Variable not found: %s\n" v ;
+            failwith "Fail to find variable type" ) ) )
   (* TODO: consider sz with the type. Currently, only sz = 1 is supported. *)
   | AllocN (_sz, expr) ->
       let typ = decide_ty expr in
@@ -81,20 +83,34 @@ let rec translateType ht =
   | TInt -> Int 32
   | TBool -> Int 1
   | TUnit -> Void
-  | TLoc -> Pointer (Int 32)
+  | TLoc ht' -> Pointer (translateType ht')
   | TFun tys ->
       let param_types = List.map translateType (List.tl (List.rev tys)) in
       let ret_type = translateType (List.hd (List.rev tys)) in
       Function (List.rev param_types, ret_type)
   | TPair (t1, t2) -> Pair (translateType t1, translateType t2)
+  | TVar name -> LVar name
   | _ -> failwith "Translation not implemented for this type"
+
+let rec to_pair_ty typs =
+  match typs with
+  | [] -> failwith "typs cannot be empty"
+  | [ty] -> translateType ty
+  | ty1 :: res_t -> Pair (translateType ty1, to_pair_ty res_t)
 
 let rec translateHeaplang stmts =
   match stmts with
-  | [] -> []
-  | st :: rest_stmts ->
-      let fst_st = translateGlobal st in
-      fst_st :: translateHeaplang rest_stmts
+  | [] -> {globals= []; user_typs= []; functions= []}
+  | st :: rest_stmts -> (
+    match st with
+    | Rec _ ->
+        let fst_st = translateGlobal st in
+        let m = translateHeaplang rest_stmts in
+        {m with functions= fst_st :: m.functions}
+    | TypeDef (name, typs) ->
+        let m = translateHeaplang rest_stmts in
+        {m with user_typs= {name; typ= to_pair_ty typs} :: m.user_typs}
+    | _ -> failwith "unsupported top-level constructs" )
 
 and translateApp app varName curr_blk =
   match app with

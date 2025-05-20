@@ -23,7 +23,7 @@ let () =
              %s.str = private constant [4 x i8] %s\n\
              %s"
             "@" "c\"%d\\0A\\00\""
-            (String.concat "\n" (List.map Llvm_ast.func_to_string llvm_ast))
+            (Llvm_ast.llvm_module_to_string llvm_ast)
       | _ -> Printf.eprintf "Unknown mode: %s. Use --ast or --llvm.\n" mode
     with
     | Failure msg -> prerr_endline ("Error: " ^ msg)

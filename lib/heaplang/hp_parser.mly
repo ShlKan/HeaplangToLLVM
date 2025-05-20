@@ -101,6 +101,7 @@ stmt_expr:
     EQ LAMBDA idents COMMA expr DOT  { gen_rec (BNamed $2) $13 $7 $15 }
   | expr ASSIGN expr  %prec LOW_PRECEDENCE1 { Store ($1, $3) }
   | PRINT expr    %prec APP { Print $2 }
+  | LPAREN TIMES IDENT EQ LPAREN types RPAREN TIMES RPAREN  {TypeDef ($3, $6)}
 
 types:
   | types COMMA typ          { $1 @ [ $3 ] }
@@ -109,9 +110,10 @@ types:
 typ:
   | INTTYPE                     { TInt }
   | VOID                        { TUnit }
+  | IDENT                       { TVar $1}
   | PAIR LPAREN typ COMMA typ RPAREN  { TPair ($3, $5) }
   | FUN LPAREN types RPAREN  { TFun $3 }
-  | LOC  { TLoc }
+  | LOC typ { TLoc $2 }
 
 idents:
   | IDENT                          { [ $1 ] }

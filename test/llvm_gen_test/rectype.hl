@@ -1,0 +1,9 @@
+(* triple = (loc triple, int, loc triple) *)
+
+Definition get_mid : val (* pair (loc int, pair(int, loc int)), loc int *) :=
+  λ: "v", Snd (Snd "v").
+
+Definition main : val (* void, int *) :=
+rec: "main" "vd" :=
+  
+  #0.

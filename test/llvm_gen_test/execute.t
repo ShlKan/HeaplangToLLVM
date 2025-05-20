@@ -9,6 +9,8 @@
   Successfully executed ./let1.hl
   23
   Successfully executed ./load.hl
+  1
+  Successfully executed ./map_get.hl
   2
   Successfully executed ./multiParam.hl
   2
@@ -23,6 +25,7 @@
   Successfully executed ./plus.hl
   1
   Successfully executed ./print.hl
+  Successfully executed ./rectype.hl
   32
   Successfully executed ./seq.hl
   35

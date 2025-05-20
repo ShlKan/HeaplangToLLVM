@@ -26,10 +26,11 @@ type base_lit =
 (* Heaplang itself is not explicitly typed. In order to generate LLVM IR, we
    need instantiate the function signature with types. *)
 type htyp =
+  | TVar of string
   | TUnit
   | TBool
   | TInt
-  | TLoc
+  | TLoc of htyp
   | TFun of htyp list
   | TPair of (htyp * htyp)
 
@@ -37,7 +38,8 @@ let rec htyp_to_string = function
   | TUnit -> "unit"
   | TBool -> "bool"
   | TInt -> "int"
-  | TLoc -> "loc"
+  | TLoc _ -> "loc"
+  | TVar name -> name
   | TFun args ->
       "fun(" ^ String.concat ", " (List.map htyp_to_string args) ^ ")"
   | TPair (t1, t2) ->
@@ -81,6 +83,7 @@ type expr =
   | Let of (expr * expr * expr)
   | Print of expr
   | Seq of (expr * expr)
+  | TypeDef of string * htyp list
 
 let rec ast_to_string = function
   | Val (LitV (LitInt i)) -> string_of_int i
