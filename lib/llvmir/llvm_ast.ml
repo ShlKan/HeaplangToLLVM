@@ -6,6 +6,7 @@ type typ =
   | Pointer of typ
   | Array of int * typ
   | Struct of typ list
+  | Function of typ list * typ
   | Pair of typ * typ (* Represents a pair type *)
 
 type operand =
@@ -28,7 +29,7 @@ type instruction =
   | Load of string option * operand * typ
   | Store of operand * typ * operand * typ
   | Alloca of string * typ
-  | Call of string option * string * string * (operand * typ) list * typ
+  | Call of string option * operand * string * (operand * typ) list * typ
   | Ret of (operand * typ) option
   | Br of string
   | CondBr of operand * string * string
@@ -67,6 +68,10 @@ let rec typ_to_string = function
   | Array (n, t) -> "[" ^ string_of_int n ^ " x " ^ typ_to_string t ^ "]"
   | Struct ts -> "{" ^ String.concat ", " (List.map typ_to_string ts) ^ "}"
   | Pair (t1, t2) -> "{" ^ typ_to_string t1 ^ ", " ^ typ_to_string t2 ^ "}"
+  | Function (args, ret) ->
+      typ_to_string ret ^ " ("
+      ^ String.concat ", " (List.map typ_to_string args)
+      ^ ")*"
 
 let operand_to_string = function
   | ConstVoid -> "()"
@@ -114,20 +119,20 @@ let rec instruction_to_string = function
   | Call (None, name, c_sig, args, typ) ->
       "call " ^ typ_to_string typ
       ^ (if c_sig = "" then "" else " " ^ c_sig)
-      ^ " @" ^ name ^ "("
+      ^ " " ^ operand_to_string name ^ "("
       ^ String.concat ", " (List.map arg_to_string args)
       ^ ")"
   | Call (Some varName, name, c_sig, args, typ) ->
       if typ = Void then
         "call " ^ typ_to_string typ
         ^ (if c_sig = "" then "" else " " ^ c_sig)
-        ^ " @" ^ name ^ "("
+        ^ " " ^ operand_to_string name ^ "("
         ^ String.concat ", " (List.map arg_to_string args)
         ^ ")"
       else
         local_var varName ^ " = call " ^ typ_to_string typ
         ^ (if c_sig = "" then "" else " " ^ c_sig)
-        ^ " @" ^ name ^ "("
+        ^ " " ^ operand_to_string name ^ "("
         ^ String.concat ", " (List.map arg_to_string args)
         ^ ")"
   | Ret None -> "ret void"

@@ -1,0 +1,23 @@
+Definition get_left : val (* pair (loc, pair(int, loc)), loc *) :=
+  λ: "v", Fst "v".
+
+Definition get_right : val (* pair (loc, pair(int, loc)), loc *) :=
+  λ: "v", Snd (Snd "v").
+
+Definition get_mid : val (* pair (loc, pair(int, loc)), int *):=
+  λ: "v", Fst (Snd "v").
+
+
+Definition map_get : val (* pair (loc, pair (int, loc)), fun (pair (loc, pair(int, loc)), int), int *) :=
+  rec: "map_get" "m" "f" :=
+  let: "res" := "f" "m" in
+  print "res" ;;
+  #0.
+
+Definition main : val (* void , int *) :=
+rec: "main" "vd" :=
+let: "x" := ref #0 in
+let: "y" := ref #1 in
+let: "z" := ("x", (#1 ,"y")) in
+let: "res" := map_get "z" get_mid in
+"res".

@@ -7,6 +7,8 @@ let var_type = Hashtbl.create 10
 
 let param_type = Hashtbl.create 10
 
+let fun_type = Hashtbl.create 10
+
 let tmp_var ?(step = 0) blk =
   let index = List.length blk.instructions in
   let var_name = Printf.sprintf "tmp_%d_%d" index step in
@@ -24,6 +26,11 @@ let snd_type = function
 
 (* Counter generate *)
 
+let return_type ty =
+  match ty with
+  | Function (args, ret_type) -> ret_type
+  | _ -> failwith "Expected a function type"
+
 let rec decide_ty e =
   match e with
   | Val (LitV (LitInt _)) -> Int 32
@@ -35,9 +42,10 @@ let rec decide_ty e =
     | None -> (
       match Hashtbl.find_opt param_type v with
       | Some typ -> typ
-      | None ->
-          (* TODO: consider the type of the variable *)
-          failwith ("Variable " ^ v ^ " not found in type table") ) )
+      | None -> (
+        match Hashtbl.find_opt fun_type v with
+        | Some typ -> typ
+        | None -> failwith "Fail to find variable type" ) ) )
   (* TODO: consider sz with the type. Currently, only sz = 1 is supported. *)
   | AllocN (_sz, expr) ->
       let typ = decide_ty expr in
@@ -60,6 +68,7 @@ let rec decide_ty e =
       let typ = decide_ty v in
       let typ2 = snd_type typ in
       typ2
+  | App (Var f, _) -> return_type (decide_ty (Var f))
   | App (f, _) -> decide_ty f
   | _ -> failwith "Type not supported in translation"
 
@@ -73,6 +82,10 @@ let rec translateType ht =
   | TBool -> Int 1
   | TUnit -> Void
   | TLoc -> Pointer (Int 32)
+  | TFun tys ->
+      let param_types = List.map translateType (List.tl (List.rev tys)) in
+      let ret_type = translateType (List.hd (List.rev tys)) in
+      Function (List.rev param_types, ret_type)
   | TPair (t1, t2) -> Pair (translateType t1, translateType t2)
   | _ -> failwith "Translation not implemented for this type"
 
@@ -95,8 +108,9 @@ and translateApp app varName curr_blk =
           , Call (varName, fun_name, "", args @ [(arg_exp, typ)], ret_typ) )
       | _ -> failwith "Expected a function call" )
   | Var fun_name ->
-      let ret_typ = decide_ty (Var fun_name) in
-      (curr_blk, Call (varName, fun_name, "", [], ret_typ))
+      let curr_blk1, fun_id = translateExpr (Var fun_name) curr_blk in
+      let ret_typ = return_type (decide_ty (Var fun_name)) in
+      (curr_blk1, Call (varName, fun_id, "", [], ret_typ))
   | _ -> failwith "Expected an application"
 
 and translateGlobal exp =
@@ -116,9 +130,9 @@ and translateGlobal exp =
   match exp with
   | Rec (BNamed f, BNamed x, body, TFun typs) ->
       let param_typ = translateType (List.hd typs) in
-      let ret_typ = translateType (List.hd (List.tl typs)) in
+      let ret_typ = translateType (List.hd (List.rev typs)) in
       (* Currently, we only bind return type to the funciton name *)
-      Hashtbl.add var_type f ret_typ ;
+      Hashtbl.add fun_type f (translateType (TFun typs)) ;
       if param_typ = Void then
         let f = {name= f; ret_type= ret_typ; params= []; basic_blocks= []} in
         aux body f
@@ -157,7 +171,7 @@ and translateBlock exp blks curr_blk =
               , Array (4, Int 8) )
           ; Call
               ( Some (tmp_var ~step:1 curr_blk1)
-              , "printf"
+              , GlobalVar "printf"
               , "(i8*, ...)"
               , [ (LocalVar (tmp_var curr_blk1), Pointer (Int 8))
                 ; (operand, decide_ty v) ]
@@ -195,7 +209,8 @@ and translateBlock exp blks curr_blk =
         translateApp (App (f, arg)) (Some (tmp_var curr_blk)) curr_blk
       in
       [ extend_blk curr_blk1
-          [operand; Ret (Some (LocalVar (tmp_var curr_blk), typ))] ]
+          [operand; Ret (Some (LocalVar (tmp_var curr_blk), return_type typ))]
+      ]
   | If (cond, then_branch, else_branch) ->
       let curr_blk1, cond_operand = translateExpr cond curr_blk in
       let curr_blk2 =
@@ -250,7 +265,11 @@ and translateExpr e curr_blk =
     | None -> (
       match Hashtbl.find_opt param_type v with
       | Some _ -> (curr_blk, LocalVar v)
-      | None -> failwith ("Variable " ^ v ^ " not found in type table") ) )
+      | None -> (
+        match Hashtbl.find_opt fun_type v with
+        | Some _ -> (curr_blk, GlobalVar v)
+        | None -> failwith ("Variable " ^ v ^ " not found in type table") ) )
+    )
   | BinOp (EqOp, e1, e2) ->
       let curr_blk1, operand1 = translateExpr e1 curr_blk in
       let curr_blk2, operand2 = translateExpr e2 curr_blk1 in
@@ -328,7 +347,7 @@ and translateExpr e curr_blk =
         extend_blk curr_blk4
           [ Call
               ( Some (tmp_var curr_blk4)
-              , "malloc"
+              , GlobalVar "malloc"
               , ""
               , [(operand, Int 64)]
               , decide_ty alloc )
@@ -353,7 +372,7 @@ and translateExpr e curr_blk =
         extend_blk curr_blk2
           [ Call
               ( Some (tmp_var curr_blk2)
-              , "malloc"
+              , GlobalVar "malloc"
               , ""
               , [(operand, Int 64)]
               , decide_ty alloc )
