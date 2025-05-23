@@ -9,7 +9,7 @@ else
       match ids with
       | [] -> Rec (BAnon, BAnon, expr, TFun typs)
       | [ id ] -> Rec (BAnon, BNamed id, expr, TFun typs)
-      | id :: rest -> Rec (BAnon, BNamed id, aux rest (List.tl tys), TFun typs)
+      | id :: rest -> Rec (BAnon, BNamed id, aux rest (List.tl typs), TFun typs)
     in
       match ids with
       | [] ->  Rec (fname, BAnon , expr, TFun tys)
@@ -24,7 +24,7 @@ else
 %token IF THEN ELSE
 %token LET IN REC VAL DEFINITION COLON INTTYPE VOID PAIR FUN PRINT SEMICOLON LOC
 %token LAMBDA REF
-%token PLUS MINUS TIMES DIV
+%token PLUS MINUS TIMES DIV QUOT REM
 %token EQ LT AND OR
 %token LPAREN RPAREN DOT COMMA FIRST SECOND BANG ASSIGN
 %token EOF
@@ -39,7 +39,7 @@ else
 %left OR
 %left AND
 %left EQ LT
-%left PLUS MINUS
+%left PLUS MINUS QUOT REM
 %left TIMES DIV
 %left APP
 
@@ -88,6 +88,8 @@ bin_expr:
   | expr PLUS expr                 { BinOp(PlusOp, $1, $3) }
   | expr MINUS expr                { BinOp(MinusOp, $1, $3) }
   | expr TIMES expr                { BinOp(MultOp, $1, $3) }
+  | expr QUOT expr                   { BinOp(QuotOp, $1, $3) }
+  | expr REM expr                 { BinOp(RemOp, $1, $3) }
   | expr DIV expr                  { BinOp(QuotOp, $1, $3) }
   | expr SEMICOLON expr            { Seq ($1, $3) }
 

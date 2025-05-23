@@ -18,6 +18,8 @@ rule read = parse
   | "then"                { THEN }
   | "else"                { ELSE }
   | "Fst"               { FIRST }
+  | "`quot`"               { QUOT }
+  | "`rem`"                { REM }
   | "Snd"               { SECOND }
   | "let:"                { LET }
   | "ref"                 { REF }

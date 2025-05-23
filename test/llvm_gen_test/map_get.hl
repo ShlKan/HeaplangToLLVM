@@ -1,23 +1,29 @@
-Definition get_left : val (* pair (loc int, pair(int, loc int)), loc int *) :=
+(* triple = (loc triple, int, loc triple) *)
+
+Definition get_left : val (* triple, loc triple *) :=
   λ: "v", Fst "v".
 
-Definition get_right : val (* pair (loc int, pair(int, loc int)), loc int *) :=
+Definition get_right : val (* triple, loc triple *) :=
   λ: "v", Snd (Snd "v").
 
-Definition get_mid : val (* pair (loc int, pair(int, loc int)), int *):=
+Definition get_mid : val (* triple, int *):=
   λ: "v", Fst (Snd "v").
 
+Definition qm : val (*int, pair(int, int)*) :=
+  λ: "v",
+  let: "q" := "v" `quot` #2 in
+  ("q", "v" `rem` #2).
 
-Definition map_get : val (* pair (loc int, pair (int, loc int)), fun (pair (loc int, pair(int, loc int)), int), int *) :=
-  rec: "map_get" "m" "f" :=
-  let: "res" := "f" "m" in
-  print "res" ;;
+Definition map_get : val (* loc triple, fun (int, pair (int, int)), int, int, int, int, int *) :=
+  rec: "map_get" "m" "f" "base" "left" "right" "key" :=
+  if: "key" = "base" then
+    get_mid (! "m")
+  else
   #0.
 
 Definition main : val (* void , int *) :=
 rec: "main" "vd" :=
-let: "x" := ref #0 in
-let: "y" := ref #1 in
-let: "z" := ("x", (#1 ,"y")) in
-let: "res" := map_get "z" get_mid in
-"res".
+let: "x" := ref ((* loc triple *)#(), (#23,  (* loc triple *) #())) in
+let: "z" := map_get "x" qm #1 #0 #1 #1 in
+print "z" ;;
+#0.

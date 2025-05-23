@@ -20,7 +20,7 @@ type operand =
   | LocalVar of string
   | Undef
 
-type binop = Add | Sub | Mul | Div | And | Or | Xor
+type binop = Add | Sub | Mul | Div | And | Or | Xor | Rem
 
 type gep_index = IndexConst of int | IndexVar of operand
 
@@ -98,7 +98,8 @@ let binop_to_string = function
   | Add -> "add"
   | Sub -> "sub"
   | Mul -> "mul"
-  | Div -> "div"
+  | Div -> "sdiv"
+  | Rem -> "srem"
   | And -> "and"
   | Or -> "or"
   | Xor -> "xor"

@@ -9,7 +9,7 @@
   Successfully executed ./let1.hl
   23
   Successfully executed ./load.hl
-  1
+  23
   Successfully executed ./map_get.hl
   2
   Successfully executed ./multiParam.hl
