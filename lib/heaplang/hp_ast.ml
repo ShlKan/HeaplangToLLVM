@@ -16,13 +16,6 @@ type bin_op =
   | EqOp
   | OffsetOp
 
-type base_lit =
-  | LitInt of int
-  | LitBool of bool
-  | LitUnit
-  | LitPoison
-  | LitLoc of int
-
 (* Heaplang itself is not explicitly typed. In order to generate LLVM IR, we
    need instantiate the function signature with types. *)
 type htyp =
@@ -33,6 +26,13 @@ type htyp =
   | TLoc of htyp
   | TFun of htyp list
   | TPair of (htyp * htyp)
+
+type base_lit =
+  | LitInt of int
+  | LitBool of bool
+  | LitUnit
+  | LitPoison
+  | LitLoc of int * htyp
 
 let rec htyp_to_string = function
   | TUnit -> "unit"
@@ -90,7 +90,7 @@ let rec ast_to_string = function
   | Val (LitV (LitBool b)) -> string_of_bool b
   | Val (LitV LitUnit) -> "()"
   | Val (LitV LitPoison) -> "poison"
-  | Val (LitV (LitLoc l)) -> "loc(" ^ string_of_int l ^ ")"
+  | Val (LitV (LitLoc (l, _))) -> "loc(" ^ string_of_int l ^ ")"
   | Val (PairV (v1, v2)) ->
       "(" ^ ast_to_string (Val v1) ^ ", " ^ ast_to_string (Val v2) ^ ")"
   | Val (InjLV v) -> "inl(" ^ ast_to_string (Val v) ^ ")"

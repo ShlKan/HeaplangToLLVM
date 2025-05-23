@@ -124,6 +124,7 @@ atom:
   | TRUE                           { Val (LitV (LitBool true)) }
   | FALSE                          { Val (LitV (LitBool false)) }
   | UNIT                           { Val (LitV LitUnit) }
+  | LPAREN TIMES typ TIMES RPAREN UNIT  { Val (LitV (LitLoc (0, $3))) }
   | LPAREN expr COMMA expr RPAREN  { Pair($2, $4) }
   | LPAREN expr RPAREN             { $2 }
   | FIRST expr  %prec LOW_PRECEDENCE                   { Fst $2 }

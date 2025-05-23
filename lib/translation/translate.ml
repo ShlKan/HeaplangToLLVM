@@ -9,6 +9,8 @@ let param_type = Hashtbl.create 10
 
 let fun_type = Hashtbl.create 10
 
+let type_tbl = Hashtbl.create 10
+
 let tmp_var ?(step = 0) blk =
   let index = List.length blk.instructions in
   let var_name = Printf.sprintf "tmp_%d_%d" index step in
@@ -18,11 +20,15 @@ let tmp_var ?(step = 0) blk =
 
 let fst_type = function
   | Pair (t1, _) -> t1
-  | _ -> failwith "Expected a pair type"
+  | t ->
+      Format.printf "%s" (typ_to_string t) ;
+      failwith "Expected a pair type"
 
 let snd_type = function
   | Pair (_, t2) -> t2
-  | _ -> failwith "Expected a pair type"
+  | t ->
+      Format.printf "%s" (typ_to_string t) ;
+      failwith "Expected a pair type"
 
 (* Counter generate *)
 
@@ -31,11 +37,26 @@ let return_type ty =
   | Function (args, ret_type) -> ret_type
   | _ -> failwith "Expected a function type"
 
+let rec translateType ht =
+  match ht with
+  | TInt -> Int 32
+  | TBool -> Int 1
+  | TUnit -> Void
+  | TLoc ht' -> Pointer (translateType ht')
+  | TFun tys ->
+      let param_types = List.map translateType (List.tl (List.rev tys)) in
+      let ret_type = translateType (List.hd (List.rev tys)) in
+      Function (List.rev param_types, ret_type)
+  | TPair (t1, t2) -> Pair (translateType t1, translateType t2)
+  | TVar name -> LVar name
+  | _ -> failwith "Translation not implemented for this type"
+
 let rec decide_ty e =
   match e with
   | Val (LitV (LitInt _)) -> Int 32
   | Val (LitV (LitBool _)) -> Int 1
   | Val (LitV LitUnit) -> Void
+  | Val (LitV (LitLoc (0, typ))) -> translateType typ
   | Var v -> (
     match Hashtbl.find_opt var_type v with
     | Some typ -> typ
@@ -58,17 +79,39 @@ let rec decide_ty e =
       | Pointer ptyp -> ptyp
       | _ -> failwith "Expected a pointer type for Load" )
   | BinOp (PlusOp, e1, _e2) -> decide_ty e1
-  | Pair (v1, v2) ->
+  | Pair (v1, v2) -> (
       let typ1 = decide_ty v1 in
       let typ2 = decide_ty v2 in
-      Pair (typ1, typ2)
+      let pty = Pair (typ1, typ2) in
+      let name =
+        Hashtbl.fold
+          (fun n t acc -> if t = pty then Some n else acc)
+          type_tbl None
+      in
+      match name with None -> pty | Some name -> LVar name )
   | Fst v ->
       let typ = decide_ty v in
-      let typ1 = fst_type typ in
+      let typ' =
+        match typ with
+        | LVar name -> (
+          match Hashtbl.find_opt type_tbl name with
+          | None -> typ
+          | Some t -> t )
+        | _ -> typ
+      in
+      let typ1 = fst_type typ' in
       typ1
   | Snd v ->
       let typ = decide_ty v in
-      let typ2 = snd_type typ in
+      let typ' =
+        match typ with
+        | LVar name -> (
+          match Hashtbl.find_opt type_tbl name with
+          | None -> typ
+          | Some t -> t )
+        | _ -> typ
+      in
+      let typ2 = snd_type typ' in
       typ2
   | App (Var f, _) -> return_type (decide_ty (Var f))
   | App (f, _) -> decide_ty f
@@ -77,20 +120,6 @@ let rec decide_ty e =
 let var_name = function Var v -> v | _ -> failwith "Expected a variable"
 
 let extend_blk blk instrs = {blk with instructions= blk.instructions @ instrs}
-
-let rec translateType ht =
-  match ht with
-  | TInt -> Int 32
-  | TBool -> Int 1
-  | TUnit -> Void
-  | TLoc ht' -> Pointer (translateType ht')
-  | TFun tys ->
-      let param_types = List.map translateType (List.tl (List.rev tys)) in
-      let ret_type = translateType (List.hd (List.rev tys)) in
-      Function (List.rev param_types, ret_type)
-  | TPair (t1, t2) -> Pair (translateType t1, translateType t2)
-  | TVar name -> LVar name
-  | _ -> failwith "Translation not implemented for this type"
 
 let rec to_pair_ty typs =
   match typs with
@@ -108,6 +137,7 @@ let rec translateHeaplang stmts =
         let m = translateHeaplang rest_stmts in
         {m with functions= fst_st :: m.functions}
     | TypeDef (name, typs) ->
+        Hashtbl.add type_tbl name (to_pair_ty typs) ;
         let m = translateHeaplang rest_stmts in
         {m with user_typs= {name; typ= to_pair_ty typs} :: m.user_typs}
     | _ -> failwith "unsupported top-level constructs" )
@@ -265,9 +295,7 @@ and translateBlock exp blks curr_blk =
           in
           blks @ [curr_blk2]
       | _ -> failwith "Expected a pointer type for Load" )
-  | _ ->
-      Format.printf "%s\n" (Hp_ast.ast_to_string exp) ;
-      failwith "Translation not implemented for this statement"
+  | _ -> failwith "Translation not implemented for this statement"
 
 and translateExpr e curr_blk =
   match e with
@@ -411,9 +439,7 @@ and translateExpr e curr_blk =
       in
       let curr_blk3 = extend_blk curr_blk2 [operand1] in
       (curr_blk3, LocalVar (tmp_var curr_blk1))
-  | _ ->
-      Format.printf "%s\n" (Hp_ast.ast_to_string e) ;
-      failwith "Translation not implemented for this expression"
+  | _ -> failwith "Translation not implemented for this expression"
 
 (* Translate Heaplang values to LLVM IR operands *)
 
@@ -422,6 +448,6 @@ and translateVal v =
   | LitV (LitInt i) -> ConstInt i
   | LitV (LitBool b) -> ConstInt (if b then 1 else 0)
   | LitV LitUnit -> ConstVoid
-  | LitV (LitLoc l) -> ConstLoc l
+  | LitV (LitLoc (l, _typ)) -> ConstLoc l
   | LitV LitPoison -> failwith "Poison value not supported"
   | _ -> failwith "Translation not implemented for this value"

@@ -108,7 +108,7 @@ Definition map_set : val :=
   rec: "map_set" "m" "f" "base" "left" "right" "key" "v" "fv" :=
       let: "m'" :=
         if: "m" = #() then
-          ref (#(), (NONEV, #()))
+          ref (#(), (NONEV, (* x *) #()))
         else
           "m" in
       if: "key" = "base" then

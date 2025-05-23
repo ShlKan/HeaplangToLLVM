@@ -1,9 +1,18 @@
 (* triple = (loc triple, int, loc triple) *)
 
-Definition get_mid : val (* pair (loc int, pair(int, loc int)), loc int *) :=
+Definition get_mid : val (* triple, int *) :=
+  λ: "v", Fst (Snd "v").
+
+  Definition get_right : val (* triple, loc triple *) :=
   λ: "v", Snd (Snd "v").
 
 Definition main : val (* void, int *) :=
 rec: "main" "vd" :=
-  
+  let: "x" := ref ((* loc triple *)#(), (#23,  (* loc triple *) #())) in
+  let: "y" := ("x", (#123, "x")) in
+  let: "z" := get_mid "y" in
+  print "z";;
+  let: "r" := get_right "y" in
+  let: "k" := ! "r" in
+  print (get_mid "k") ;;
   #0.

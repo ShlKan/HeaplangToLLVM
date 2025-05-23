@@ -25,6 +25,8 @@
   Successfully executed ./plus.hl
   1
   Successfully executed ./print.hl
+  123
+  23
   Successfully executed ./rectype.hl
   32
   Successfully executed ./seq.hl

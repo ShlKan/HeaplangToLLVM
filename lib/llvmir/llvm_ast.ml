@@ -82,6 +82,7 @@ let operand_to_string = function
   | ConstVoid -> "()"
   | ConstInt i -> string_of_int i
   | ConstFloat f -> string_of_float f
+  | ConstLoc 0 -> "null"
   | ConstLoc l -> "loc(" ^ string_of_int l ^ ")"
   | ConstString s -> "\"" ^ s ^ "\""
   | GlobalVar name -> "@" ^ name
