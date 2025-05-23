@@ -485,24 +485,35 @@ and translateExpr e curr_blk blks =
       in
       let curr_blk5 =
         extend_blk curr_blk4
-          [ Call
+          [ GetElementPtr
               ( Some (tmp_var blks curr_blk4)
+              , ConstLoc 0
+              , [IndexConst 1]
+              , typ1 )
+          ; PtrToInt
+              ( "size_" ^ tmp_var blks curr_blk4
+              , LocalVar (tmp_var blks curr_blk4)
+              , PointerNT
+              , Int 64 )
+            (* %size_i64 = ptrtoint ptr %size_ptr to i64 *)
+          ; Call
+              ( Some (tmp_var ~step:1 blks curr_blk4)
               , GlobalVar "malloc"
               , ""
-              , [(operand, Int 64)]
+              , [(LocalVar ("size_" ^ tmp_var blks curr_blk4), Int 64)]
               , decide_ty alloc )
           ; GetElementPtr
-              ( Some (tmp_var ~step:1 blks curr_blk4)
-              , LocalVar (tmp_var blks curr_blk4)
+              ( Some (tmp_var ~step:2 blks curr_blk4)
+              , LocalVar (tmp_var ~step:1 blks curr_blk4)
               , [IndexConst 0]
               , typ1 )
           ; Store
               ( LocalVar (tmp_var ~step:1 blks curr_blk3)
               , typ1
-              , LocalVar (tmp_var ~step:1 blks curr_blk4)
+              , LocalVar (tmp_var ~step:2 blks curr_blk4)
               , decide_ty alloc ) ]
       in
-      (curr_blk5, LocalVar (tmp_var blks curr_blk4))
+      (curr_blk5, LocalVar (tmp_var ~step:1 blks curr_blk4))
   | AllocN (sz, value) as alloc ->
       (* Currently, the translation supports only sz == 1. *)
       let curr_blk1, operand = translateExpr sz curr_blk blks in
@@ -510,24 +521,34 @@ and translateExpr e curr_blk blks =
       let typ1 = decide_ty value in
       let curr_blk3 =
         extend_blk curr_blk2
-          [ Call
+          [ GetElementPtr
               ( Some (tmp_var blks curr_blk2)
+              , ConstLoc 0
+              , [IndexConst 1]
+              , typ1 )
+          ; PtrToInt
+              ( "size_" ^ tmp_var blks curr_blk2
+              , LocalVar (tmp_var blks curr_blk2)
+              , PointerNT
+              , Int 64 )
+          ; Call
+              ( Some (tmp_var ~step:1 blks curr_blk2)
               , GlobalVar "malloc"
               , ""
               , [(operand, Int 64)]
               , decide_ty alloc )
           ; GetElementPtr
-              ( Some (tmp_var ~step:1 blks curr_blk2)
-              , LocalVar (tmp_var blks curr_blk2)
+              ( Some (tmp_var ~step:2 blks curr_blk2)
+              , LocalVar (tmp_var ~step:1 blks curr_blk2)
               , [IndexConst 0]
               , typ1 )
           ; Store
               ( valu
               , typ1
-              , LocalVar (tmp_var ~step:1 blks curr_blk2)
+              , LocalVar (tmp_var ~step:2 blks curr_blk2)
               , decide_ty alloc ) ]
       in
-      (curr_blk3, LocalVar (tmp_var blks curr_blk2))
+      (curr_blk3, LocalVar (tmp_var ~step:1 blks curr_blk2))
   | App (f, arg) ->
       let curr_blk1, _ = translateApp (App (f, arg)) None curr_blk blks in
       let curr_blk2, operand1 =

@@ -4,6 +4,7 @@ type typ =
   | Float
   | Double
   | Pointer of typ
+  | PointerNT
   | Array of int * typ
   | Struct of typ list
   | Function of typ list * typ
@@ -47,6 +48,7 @@ type instruction =
       * typ (* Insert into a pair or struct *)
   | Assert of
       operand * string (* Assertion with a condition and error message *)
+  | PtrToInt of string * operand * typ * typ
 
 type basic_block = {label: string; instructions: instruction list}
 
@@ -69,6 +71,7 @@ let rec typ_to_string = function
   | LVar name -> "%" ^ name
   | Float -> "float"
   | Double -> "double"
+  | PointerNT -> "ptr"
   | Pointer t -> typ_to_string t ^ "*"
   | Array (n, t) -> "[" ^ string_of_int n ^ " x " ^ typ_to_string t ^ "]"
   | Struct ts -> "{" ^ String.concat ", " (List.map typ_to_string ts) ^ "}"
@@ -188,6 +191,9 @@ let rec instruction_to_string = function
       ^ operand_to_string lhs ^ ", " ^ operand_to_string rhs
   | Assert (cond, msg) ->
       "assert " ^ operand_to_string cond ^ " \"" ^ msg ^ "\""
+  | PtrToInt (name, op, from_typ, to_typ) ->
+      local_var name ^ " = ptrtoint " ^ typ_to_string from_typ ^ " "
+      ^ operand_to_string op ^ " to " ^ typ_to_string to_typ
 
 let basic_block_to_string {label; instructions} =
   label ^ ":\n"
