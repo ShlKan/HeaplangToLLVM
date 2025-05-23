@@ -27,20 +27,22 @@ let fst_type = function
   | Pair (t1, _) -> t1
   | t ->
       Format.printf "%s" (typ_to_string t) ;
-      failwith "Expected a pair type"
+      failwith "Fst: Expected a pair type"
 
 let snd_type = function
   | Pair (_, t2) -> t2
   | t ->
       Format.printf "%s" (typ_to_string t) ;
-      failwith "Expected a pair type"
+      failwith "Snd: Expected a pair type"
 
 (* Counter generate *)
 
 let return_type ty =
   match ty with
-  | Function (args, ret_type) -> ret_type
-  | _ -> failwith "Expected a function type"
+  | Function (_args, ret_type) -> ret_type
+  | ty ->
+      Format.printf "return_type: %s\n" (typ_to_string ty) ;
+      failwith "Expected a function type"
 
 let rec translateType ht =
   match ht with
@@ -120,8 +122,12 @@ let rec decide_ty e =
       in
       let typ2 = snd_type typ' in
       typ2
-  | App (Var f, _) -> return_type (decide_ty (Var f))
-  | App (f, _) -> decide_ty f
+  | App (f, _) -> (
+      let ty = decide_ty f in
+      match ty with
+      | Function (args, ret) ->
+          if List.length args = 1 then ret else Function (List.tl args, ret)
+      | _ -> failwith "Expected a function type" )
   | _ -> failwith "Type not supported in translation"
 
 let var_name = function Var v -> v | _ -> failwith "Expected a variable"
@@ -285,14 +291,20 @@ and translateBlock exp blks curr_blk =
   | If (cond, then_branch, else_branch) ->
       let curr_blk1, cond_operand = translateExpr cond curr_blk blks in
       let curr_blk2 =
-        extend_blk curr_blk1 [CondBr (cond_operand, "then", "else")]
+        extend_blk curr_blk1
+          [ CondBr
+              ( cond_operand
+              , "then" ^ tmp_var blks curr_blk
+              , "else" ^ tmp_var blks curr_blk ) ]
       in
       let blks' = blks @ [curr_blk2] in
       let blks'' =
-        translateBlock then_branch blks' {label= "then"; instructions= []}
+        translateBlock then_branch blks'
+          {label= "then" ^ tmp_var blks curr_blk; instructions= []}
       in
       let blks''' =
-        translateBlock else_branch blks'' {label= "else"; instructions= []}
+        translateBlock else_branch blks''
+          {label= "else" ^ tmp_var blks curr_blk; instructions= []}
       in
       blks'''
   | BinOp (PlusOp, e1, e2) ->

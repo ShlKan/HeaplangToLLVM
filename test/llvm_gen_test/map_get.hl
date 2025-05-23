@@ -16,14 +16,26 @@ Definition qm : val (*int, pair(int, int)*) :=
 
 Definition map_get : val (* loc triple, fun (int, pair (int, int)), int, int, int, int, int *) :=
   rec: "map_get" "m" "f" "base" "left" "right" "key" :=
-  if: "key" = "base" then
-    get_mid (! "m")
+  if: "m" = (* loc triple *) #() then #0
   else
-  #0.
+    if: "key" = "base" then
+      get_mid (! "m")
+    else
+      let: "res" := "f" "key" in
+      if: (Snd "res") = #0 then
+        map_get (get_left (! "m")) "f" "base" "left" "right" (Fst "res")
+      else
+        map_get (get_right (! "m")) "f" "base" "left" "right" (Fst "res").
 
 Definition main : val (* void , int *) :=
 rec: "main" "vd" :=
-let: "x" := ref ((* loc triple *)#(), (#23,  (* loc triple *) #())) in
-let: "z" := map_get "x" qm #1 #0 #1 #1 in
+let: "x" := ref ((* loc triple *)#(), (#12,  (* loc triple *) #())) in
+let: "x1" := ref ((* loc triple *)#(), (#34,  (* loc triple *) #())) in
+let: "y" := ref ("x", (#12, "x1")) in
+let: "z" := map_get "y" qm #1 #0 #1 #2 in
 print "z" ;;
+let: "z1" := map_get "y" qm #1 #0 #1 #3 in
+print "z1";;
+let: "emp" := map_get ((* loc triple *) #()) qm #1 #0 #1 #123 in
+print "emp";;
 #0.

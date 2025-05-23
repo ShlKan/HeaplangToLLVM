@@ -63,10 +63,10 @@
     store i32 %a, i32* %x
     %tmp_2_0 = load i32, i32* %x
     %tmp_3_0 = icmp eq i32 %tmp_2_0, 2
-    br i1 %tmp_3_0, label %then, label %else
-  then:
+    br i1 %tmp_3_0, label %thentmp_2_0, label %elsetmp_2_0
+  thentmp_2_0:
     ret i32 1
-  else:
+  elsetmp_2_0:
     ret i32 2
   }
   
