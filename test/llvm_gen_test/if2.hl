@@ -1,0 +1,9 @@
+Definition f : val (* int, int *) :=
+rec: "f" "a" :=
+let: "x" := (if: "a" = #24 then #1 else #2) in
+"x".
+
+Definition main: val (* void, int *) :=
+rec: "main" "x" :=
+let: "a" := f #2 in
+print "a" ;; #0.

@@ -128,6 +128,7 @@ let rec decide_ty e =
       | Function (args, ret) ->
           if List.length args = 1 then ret else Function (List.tl args, ret)
       | _ -> failwith "Expected a function type" )
+  | If (_cond, e1, _e2) -> decide_ty e1
   | _ -> failwith "Type not supported in translation"
 
 let var_name = function Var v -> v | _ -> failwith "Expected a variable"
@@ -186,8 +187,8 @@ and translateGlobal exp =
         f_def
     | _ ->
         { ff with
-          basic_blocks= translateBlock f [] {label= "entry"; instructions= []}
-        }
+          basic_blocks=
+            translateBlock f [] {label= "entry"; instructions= []} None }
   in
   match exp with
   | Rec (BNamed f, BNamed x, body, TFun typs) ->
@@ -208,8 +209,39 @@ and translateGlobal exp =
         aux body f )
   | _ -> failwith "Expected a recursive function"
 
-and translateBlock exp blks curr_blk =
+and translateBlock exp blks curr_blk bparam =
   match exp with
+  | Let (x, e1, e2) when match e1 with If _ -> true | _ -> false -> (
+      let varName = var_name x in
+      let typ = decide_ty e1 in
+      Hashtbl.add var_type varName typ ;
+      let curr_blk1 = extend_blk curr_blk [Alloca (varName, typ)] in
+      match e1 with
+      | If (cond, then_exp, else_exp) ->
+          let curr_blk2, cond_operand = translateExpr cond curr_blk1 blks in
+          let curr_blk3 =
+            extend_blk curr_blk2
+              [ CondBr
+                  ( cond_operand
+                  , "then" ^ tmp_var blks curr_blk2
+                  , "else" ^ tmp_var blks curr_blk2 ) ]
+          in
+          let blks' = blks @ [curr_blk3] in
+          let blks'' =
+            translateBlock then_exp blks'
+              {label= "then" ^ tmp_var blks curr_blk2; instructions= []}
+              (Some (varName, "merge" ^ tmp_var blks' curr_blk2))
+          in
+          let blks''' =
+            translateBlock else_exp blks''
+              {label= "else" ^ tmp_var blks curr_blk2; instructions= []}
+              (Some (varName, "merge" ^ tmp_var blks' curr_blk2))
+          in
+          let empty_blk =
+            {label= "merge" ^ tmp_var blks' curr_blk2; instructions= []}
+          in
+          translateBlock e2 blks''' empty_blk bparam
+      | _ -> failwith "unreachable" )
   | Let (x, e1, e2) ->
       let varName = var_name x in
       let typ = decide_ty e1 in
@@ -220,7 +252,7 @@ and translateBlock exp blks curr_blk =
           [ Alloca (varName, typ)
           ; Store (operand, typ, LocalVar varName, Pointer typ) ]
       in
-      translateBlock e2 blks curr_blk2
+      translateBlock e2 blks curr_blk2 bparam
   | Print v ->
       let curr_blk1, operand = translateExpr v curr_blk blks in
       let curr_blk2 =
@@ -248,19 +280,43 @@ and translateBlock exp blks curr_blk =
   | Var v ->
       let typ = decide_ty (Var v) in
       let curr_blk1, operand = translateExpr (Var v) curr_blk blks in
-      blks @ [extend_blk curr_blk1 [Ret (Some (operand, typ))]]
+      let rops =
+        match bparam with
+        | None -> [Ret (Some (operand, typ))]
+        | Some (var, label) ->
+            [Store (operand, typ, LocalVar var, Pointer typ); Br label]
+      in
+      blks @ [extend_blk curr_blk1 rops]
   | Val v ->
       let typ = decide_ty (Val v) in
-      blks @ [extend_blk curr_blk [Ret (Some (translateVal v, typ))]]
+      let rops =
+        match bparam with
+        | None -> [Ret (Some (translateVal v, typ))]
+        | Some (var, label) ->
+            [Store (translateVal v, typ, LocalVar var, Pointer typ); Br label]
+      in
+      blks @ [extend_blk curr_blk rops]
   | Fst v ->
       let curr_blk1, operand = translateExpr v curr_blk blks in
       let typ = decide_ty v in
+      let rops =
+        match bparam with
+        | None ->
+            [ Ret
+                (Some (LocalVar (tmp_var blks curr_blk1), decide_ty (Fst v)))
+            ]
+        | Some (var, label) ->
+            [ Store
+                ( LocalVar (tmp_var blks curr_blk1)
+                , decide_ty (Fst v)
+                , LocalVar var
+                , Pointer (decide_ty (Fst v)) )
+            ; Br label ]
+      in
       blks
       @ [ extend_blk curr_blk1
-            [ ExtractValue (Some (tmp_var blks curr_blk1), operand, 0, typ)
-            ; Ret
-                (Some (LocalVar (tmp_var blks curr_blk1), decide_ty (Fst v)))
-            ] ]
+            ( [ExtractValue (Some (tmp_var blks curr_blk1), operand, 0, typ)]
+            @ rops ) ]
   | Snd v ->
       let curr_blk1, operand = translateExpr v curr_blk blks in
       let typ = decide_ty v in
@@ -301,10 +357,12 @@ and translateBlock exp blks curr_blk =
       let blks'' =
         translateBlock then_branch blks'
           {label= "then" ^ tmp_var blks curr_blk; instructions= []}
+          bparam
       in
       let blks''' =
         translateBlock else_branch blks''
           {label= "else" ^ tmp_var blks curr_blk; instructions= []}
+          bparam
       in
       blks'''
   | BinOp (PlusOp, e1, e2) ->
@@ -341,18 +399,28 @@ and translateBlock exp blks curr_blk =
             ; Ret (Some (LocalVar (tmp_var blks curr_blk1), decide_ty e1)) ]
         ]
   | Seq (e1, e2) ->
-      let blks1 = translateBlock e1 blks curr_blk in
-      let blks2 = translateBlock e2 blks (List.hd (List.rev blks1)) in
+      let blks1 = translateBlock e1 blks curr_blk bparam in
+      let blks2 = translateBlock e2 blks (List.hd (List.rev blks1)) bparam in
       blks2
   | Load ptr -> (
       let typ = decide_ty ptr in
       match typ with
       | Pointer ptyp ->
           let curr_blk1, operand = translateExpr ptr curr_blk blks in
+          let rops =
+            match bparam with
+            | None -> [Ret (Some (LocalVar (tmp_var blks curr_blk1), ptyp))]
+            | Some (var, label) ->
+                [ Store
+                    ( LocalVar var
+                    , Pointer ptyp
+                    , LocalVar (tmp_var blks curr_blk1)
+                    , ptyp )
+                ; Br label ]
+          in
           let curr_blk2 =
             extend_blk curr_blk1
-              [ Load (Some (tmp_var blks curr_blk1), operand, ptyp)
-              ; Ret (Some (LocalVar (tmp_var blks curr_blk1), ptyp)) ]
+              ([Load (Some (tmp_var blks curr_blk1), operand, ptyp)] @ rops)
           in
           blks @ [curr_blk2]
       | _ -> failwith "Expected a pointer type for Load" )
@@ -476,7 +544,7 @@ and translateExpr e curr_blk blks =
       , LocalVar (tmp_var ~step:1 blks curr_blk2) )
   | AllocN (sz, Pair (v1, v2)) as alloc ->
       (* Currently, the translation supports only sz == 1. *)
-      let curr_blk1, operand = translateExpr sz curr_blk blks in
+      let curr_blk1, _operand = translateExpr sz curr_blk blks in
       let typ1 = decide_ty (Pair (v1, v2)) in
       let curr_blk2, operand1 = translateExpr v1 curr_blk1 blks in
       let curr_blk3, operand2 = translateExpr v2 curr_blk2 blks in

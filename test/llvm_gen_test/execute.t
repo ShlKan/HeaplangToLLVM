@@ -5,6 +5,8 @@
   Successfully executed ./call.hl
   1
   Successfully executed ./if1.hl
+  2
+  Successfully executed ./if2.hl
   1
   Successfully executed ./let1.hl
   23
