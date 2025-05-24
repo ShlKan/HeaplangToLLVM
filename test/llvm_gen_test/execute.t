@@ -25,6 +25,7 @@
   0
   123
   321
+  777
   Successfully executed ./map_set.hl
   2
   Successfully executed ./multiParam.hl

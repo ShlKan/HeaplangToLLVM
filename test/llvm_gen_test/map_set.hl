@@ -67,7 +67,10 @@ rec: "main" "vd" :=
     print "y";;
     let: "y1" := map_get "x" qm #1 #0 #1 #2 in
     print "y1";;
-    let: "x2" := map_set ((* loc triple *) #()) qm #1 #0 #1 #10 #321 ff in
+    let: "x2" := map_set "x" qm #1 #0 #1 #10 #321 ff in
     let: "y2" := map_get "x2" qm #1 #0 #1 #10 in
     print "y2";;
+    let: "x3" := map_set "x2" qm #1 #0 #1 #10 #456 ff in
+    let: "y3" := map_get "x2" qm #1 #0 #1 #10 in
+    print "y3";;
     #0.
