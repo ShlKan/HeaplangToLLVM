@@ -56,7 +56,6 @@ let rec translateType ht =
       Function (List.rev param_types, ret_type)
   | TPair (t1, t2) -> Pair (translateType t1, translateType t2)
   | TVar name -> LVar name
-  | _ -> failwith "Translation not implemented for this type"
 
 let rec decide_ty e =
   match e with
@@ -130,6 +129,7 @@ let rec decide_ty e =
           if List.length args = 1 then ret else Function (List.tl args, ret)
       | _ -> failwith "Expected a function type" )
   | If (_cond, e1, _e2) -> decide_ty e1
+  | Let (_, _, e) -> decide_ty e
   | _ -> failwith "Type not supported in translation"
 
 let var_name = function Var v -> v | _ -> failwith "Expected a variable"
@@ -504,6 +504,75 @@ and translateBlock exp blks curr_blk bparam =
             ; Br label ]
       in
       blks @ [extend_blk curr_blk2 ([pair_op; pair_op2] @ rops)]
+  | AllocN (sz, Pair (v1, v2)) as alloc ->
+      let curr_blk1, _operand = translateExpr sz curr_blk blks in
+      let curr_blk2, operand1 = translateExpr v1 curr_blk1 blks in
+      let curr_blk3, operand2 = translateExpr v2 curr_blk2 blks in
+      let typ1 = decide_ty (Pair (v1, v2)) in
+      let pair_op =
+        InsertValue
+          ( tmp_var blks curr_blk3
+          , Undef
+          , (operand1, decide_ty v1)
+          , 0
+          , decide_ty (Pair (v1, v2)) )
+      in
+      let pair_op2 =
+        InsertValue
+          ( tmp_var ~step:1 blks curr_blk3
+          , LocalVar (tmp_var blks curr_blk3)
+          , (operand2, decide_ty v2)
+          , 1
+          , decide_ty (Pair (v1, v2)) )
+      in
+      let curr_blk4 =
+        extend_blk curr_blk3
+          [ pair_op
+          ; pair_op2
+          ; GetElementPtr
+              ( Some (tmp_var ~step:2 blks curr_blk3)
+              , ConstLoc 0
+              , [IndexConst 1]
+              , typ1 )
+          ; PtrToInt
+              ( "size_" ^ tmp_var blks curr_blk3
+              , LocalVar (tmp_var ~step:2 blks curr_blk3)
+              , PointerNT
+              , Int 64 )
+            (* %size_i64 = ptrtoint ptr %size_ptr to i64 *)
+          ; Call
+              ( Some (tmp_var ~step:3 blks curr_blk3)
+              , GlobalVar "malloc"
+              , ""
+              , [(LocalVar ("size_" ^ tmp_var blks curr_blk3), Int 64)]
+              , decide_ty alloc )
+          ; GetElementPtr
+              ( Some (tmp_var ~step:4 blks curr_blk3)
+              , LocalVar (tmp_var ~step:3 blks curr_blk3)
+              , [IndexConst 0]
+              , typ1 )
+          ; Store
+              ( LocalVar (tmp_var ~step:1 blks curr_blk3)
+              , typ1
+              , LocalVar (tmp_var ~step:4 blks curr_blk3)
+              , decide_ty alloc ) ]
+      in
+      let rops =
+        match bparam with
+        | None ->
+            [ Ret
+                (Some
+                   ( LocalVar (tmp_var ~step:3 blks curr_blk3)
+                   , decide_ty alloc ) ) ]
+        | Some (var, label) ->
+            [ Store
+                ( LocalVar (tmp_var ~step:3 blks curr_blk3)
+                , decide_ty alloc
+                , LocalVar var
+                , Pointer (decide_ty alloc) )
+            ; Br label ]
+      in
+      blks @ [extend_blk curr_blk4 rops]
   | _ ->
       Format.printf "%s" (ast_to_string exp) ;
       failwith "Translation not implemented for this statement"

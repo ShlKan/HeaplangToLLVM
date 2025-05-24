@@ -1,0 +1,73 @@
+(* triple = (loc triple, int, loc triple) *)
+
+Definition get_left : val (* triple, loc triple *) :=
+  λ: "v", Fst "v".
+
+Definition get_right : val (* triple, loc triple *) :=
+  λ: "v", Snd (Snd "v").
+
+Definition get_mid : val (* triple, int *):=
+  λ: "v", Fst (Snd "v").
+
+Definition qm : val (*int, pair(int, int)*) :=
+  λ: "v",
+  let: "q" := "v" `quot` #2 in
+  ("q", "v" `rem` #2).
+
+Definition map_get : val (* loc triple, fun (int, pair (int, int)), int, int, int, int, int *) :=
+  rec: "map_get" "m" "f" "base" "left" "right" "key" :=
+  if: "m" = (* loc triple *) #() then #0
+  else
+    if: "key" = "base" then
+      get_mid (! "m")
+    else
+      let: "res" := "f" "key" in
+      if: (Snd "res") = #0 then
+        map_get (get_left (! "m")) "f" "base" "left" "right" (Fst "res")
+      else
+        map_get (get_right (! "m")) "f" "base" "left" "right" (Fst "res").
+
+
+Definition map_set : val (* loc triple, fun (int, pair (int, int)), int, int, int, int, int, fun (int, int, int), loc triple*) :=
+  rec: "map_set" "m" "f" "base" "left" "right" "key" "v" "fv" :=
+      let: "m1" :=
+        if: "m" = (* loc triple *) #() then
+          ref ((* loc triple *)#(), (#0, (* loc triple *) #()))
+        else
+          "m" in
+    if: "key" = "base" then
+    "m1" <- (get_left (! "m1"),
+                (("fv" (get_mid (! "m1")) "v"), get_right (! "m1")));; m1
+    else
+        let: "res" := "f" "key" in
+        let: "rest" := (Fst "res") in
+        let: "residue" := (Snd "res") in
+        if: "residue" = "left" then
+          let: "left_branch" :=
+            "map_set" (get_left (! "m1"))
+              "f" "base" "left" "right" "rest" "v" "fv" in
+          "m1" <- ("left_branch", (get_mid (! "m1"), get_right (! "m1"))) ;;
+          "m1"
+        else
+          let: "right_branch" :=
+            "map_set" (get_right (! "m1"))
+              "f" "base" "left" "right" "rest" "v" "fv" in
+          "m1" <- (get_left (! "m1"), (get_mid (! "m1"), "right_branch")) ;;
+          "m1".
+
+
+Definition ff : val (* int, int, int *) :=
+    rec: "ff" "a" "b" :=
+        "a" + "b".
+
+Definition main : val (* void, int *) :=
+rec: "main" "vd" :=
+    let: "x" := map_set ((* loc triple *) #()) qm #1 #0 #1 #2 #123 ff in
+    let: "y" := map_get "x" qm #1 #0 #1 #1 in
+    print "y";;
+    let: "y1" := map_get "x" qm #1 #0 #1 #2 in
+    print "y1";;
+    let: "x2" := map_set ((* loc triple *) #()) qm #1 #0 #1 #10 #321 ff in
+    let: "y2" := map_get "x2" qm #1 #0 #1 #10 in
+    print "y2";;
+    #0.
