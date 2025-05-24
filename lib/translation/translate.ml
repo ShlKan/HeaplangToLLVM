@@ -110,6 +110,7 @@ let rec decide_ty e =
       in
       let typ1 = fst_type typ' in
       typ1
+  | Seq (_e1, e2) -> decide_ty e2
   | Snd v ->
       let typ = decide_ty v in
       let typ' =
@@ -320,13 +321,26 @@ and translateBlock exp blks curr_blk bparam =
   | Snd v ->
       let curr_blk1, operand = translateExpr v curr_blk blks in
       let typ = decide_ty v in
+      let rops =
+        match bparam with
+        | None ->
+            [ Ret
+                (Some (LocalVar (tmp_var blks curr_blk1), decide_ty (Snd v)))
+            ]
+        | Some (var, label) ->
+            [ Store
+                ( LocalVar (tmp_var blks curr_blk1)
+                , decide_ty (Snd v)
+                , LocalVar var
+                , Pointer (decide_ty (Snd v)) )
+            ; Br label ]
+      in
       blks
       @ [ extend_blk curr_blk1
-            [ ExtractValue (Some (tmp_var blks curr_blk1), operand, 1, typ)
-            ; Ret (Some (LocalVar (tmp_var blks curr_blk1), snd_type typ)) ]
-        ]
+            ( [ExtractValue (Some (tmp_var blks curr_blk1), operand, 1, typ)]
+            @ rops ) ]
   | App (f, arg) ->
-      let typ = decide_ty f in
+      let typ = decide_ty (App (f, arg)) in
       let curr_blk11, _ =
         translateApp
           (App (f, arg))
@@ -339,11 +353,18 @@ and translateBlock exp blks curr_blk bparam =
           (Some (tmp_var blks curr_blk11))
           curr_blk blks
       in
-      blks
-      @ [ extend_blk curr_blk1
-            [ operand
-            ; Ret (Some (LocalVar (tmp_var blks curr_blk11), return_type typ))
-            ] ]
+      let rops =
+        match bparam with
+        | None -> [Ret (Some (LocalVar (tmp_var blks curr_blk11), typ))]
+        | Some (var, label) ->
+            [ Store
+                ( LocalVar (tmp_var blks curr_blk11)
+                , typ
+                , LocalVar var
+                , Pointer typ )
+            ; Br label ]
+      in
+      blks @ [extend_blk curr_blk1 ([operand] @ rops)]
   | If (cond, then_branch, else_branch) ->
       let curr_blk1, cond_operand = translateExpr cond curr_blk blks in
       let curr_blk2 =
@@ -371,33 +392,57 @@ and translateBlock exp blks curr_blk bparam =
       let bin_op =
         BinOp (tmp_var blks curr_blk1, Add, operand1, operand2, decide_ty e1)
       in
-      blks
-      @ [ extend_blk curr_blk2
-            [ bin_op
-            ; Ret (Some (LocalVar (tmp_var blks curr_blk1), decide_ty e1)) ]
-        ]
+      let rops =
+        match bparam with
+        | None ->
+            [Ret (Some (LocalVar (tmp_var blks curr_blk1), decide_ty e1))]
+        | Some (var, label) ->
+            [ Store
+                ( LocalVar (tmp_var blks curr_blk1)
+                , decide_ty e1
+                , LocalVar var
+                , Pointer (decide_ty e1) )
+            ; Br label ]
+      in
+      blks @ [extend_blk curr_blk2 ([bin_op] @ rops)]
   | BinOp (QuotOp, e1, e2) ->
       let curr_blk1, operand1 = translateExpr e1 curr_blk blks in
       let curr_blk2, operand2 = translateExpr e2 curr_blk1 blks in
       let bin_op =
         BinOp (tmp_var blks curr_blk1, Div, operand1, operand2, decide_ty e1)
       in
-      blks
-      @ [ extend_blk curr_blk2
-            [ bin_op
-            ; Ret (Some (LocalVar (tmp_var blks curr_blk1), decide_ty e1)) ]
-        ]
+      let rops =
+        match bparam with
+        | None ->
+            [Ret (Some (LocalVar (tmp_var blks curr_blk1), decide_ty e1))]
+        | Some (var, label) ->
+            [ Store
+                ( LocalVar (tmp_var blks curr_blk1)
+                , decide_ty e1
+                , LocalVar var
+                , Pointer (decide_ty e1) )
+            ; Br label ]
+      in
+      blks @ [extend_blk curr_blk2 ([bin_op] @ rops)]
   | BinOp (RemOp, e1, e2) ->
       let curr_blk1, operand1 = translateExpr e1 curr_blk blks in
       let curr_blk2, operand2 = translateExpr e2 curr_blk1 blks in
       let bin_op =
         BinOp (tmp_var blks curr_blk1, Rem, operand1, operand2, decide_ty e1)
       in
-      blks
-      @ [ extend_blk curr_blk2
-            [ bin_op
-            ; Ret (Some (LocalVar (tmp_var blks curr_blk1), decide_ty e1)) ]
-        ]
+      let rops =
+        match bparam with
+        | None ->
+            [Ret (Some (LocalVar (tmp_var blks curr_blk1), decide_ty e1))]
+        | Some (var, label) ->
+            [ Store
+                ( LocalVar (tmp_var blks curr_blk1)
+                , decide_ty e1
+                , LocalVar var
+                , Pointer (decide_ty e1) )
+            ; Br label ]
+      in
+      blks @ [extend_blk curr_blk2 ([bin_op] @ rops)]
   | Seq (e1, e2) ->
       let blks1 = translateBlock e1 blks curr_blk bparam in
       let blks2 = translateBlock e2 blks (List.hd (List.rev blks1)) bparam in
@@ -443,14 +488,22 @@ and translateBlock exp blks curr_blk bparam =
           , 1
           , decide_ty (Pair (v1, v2)) )
       in
-      blks
-      @ [ extend_blk curr_blk2
-            [ pair_op
-            ; pair_op2
-            ; Ret
+      let rops =
+        match bparam with
+        | None ->
+            [ Ret
                 (Some
                    ( LocalVar (tmp_var ~step:1 blks curr_blk2)
-                   , decide_ty (Pair (v1, v2)) ) ) ] ]
+                   , decide_ty (Pair (v1, v2)) ) ) ]
+        | Some (var, label) ->
+            [ Store
+                ( LocalVar (tmp_var ~step:1 blks curr_blk2)
+                , decide_ty (Pair (v1, v2))
+                , LocalVar var
+                , Pointer (decide_ty (Pair (v1, v2))) )
+            ; Br label ]
+      in
+      blks @ [extend_blk curr_blk2 ([pair_op; pair_op2] @ rops)]
   | _ ->
       Format.printf "%s" (ast_to_string exp) ;
       failwith "Translation not implemented for this statement"

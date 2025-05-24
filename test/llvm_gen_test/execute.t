@@ -6,6 +6,13 @@
   1
   Successfully executed ./if1.hl
   2
+  12
+  45
+  24
+  45
+  98
+  87
+  24
   Successfully executed ./if2.hl
   1
   Successfully executed ./let1.hl

@@ -1,9 +1,43 @@
 Definition f : val (* int, int *) :=
 rec: "f" "a" :=
-let: "x" := (if: "a" = #24 then #1 else #2) in
+let: "x" := if: "a" = #24 then #1 else #2 in
+"x".
+
+Definition f1 : val (* int, int *) :=
+rec: "f" "a" :=
+let: "p" := (#12, #45) in
+let: "x" := if: "a" = #24 then (Fst "p") else (Snd "p") in
+"x".
+
+Definition f2 : val (* int, int *) :=
+rec: "f" "a" :=
+let: "x" := if: "a" = #24 then "a" else f1 #23 in
+"x".
+
+Definition f3 : val (* int, pair(int, int) *) :=
+rec: "f" "a" :=
+let: "x" := if: "a" = #24 then ("a", "a") else ("a", #98) in
+"x".
+
+Definition f4 : val (* int, pair(int, int) *) :=
+rec: "f" "a" :=
+let: "x" := if: "a" = #24 then print #87 ;; ("a", "a") else ("a", #98) in
 "x".
 
 Definition main: val (* void, int *) :=
 rec: "main" "x" :=
 let: "a" := f #2 in
-print "a" ;; #0.
+print "a" ;;
+let: "b" := f1 #24 in
+print "b" ;;
+let: "b1" := f1 #23 in
+print "b1" ;;
+let: "b2" := f2 #24 in
+print "b2";;
+let: "b3" := f2 #211 in
+print "b3";;
+let: "b4" := f3 #211 in
+print (Snd "b4");;
+let: "b5" := f4 #24 in
+print (Snd "b5");;
+#0.
