@@ -30,10 +30,15 @@ rule read = parse
   | "rec:"                 { REC }
   | "in"                  { IN }
   | "int"                { INTTYPE }
+  | "bool"                {BOOLTYPE}
   | "void"                { VOID }
   | "pair"                { PAIR }
   | "loc"                { LOC }
   | "fun"                { FUN }
+  | "NONEV"               {NONEV}
+  | "SOMEV"               {SOMEV}
+  | "NONE"                {NONE}
+  | "SOME"                {SOME}
   | "λ" | "fun"           { LAMBDA }
   | "="                   { EQ }
   | "<-"                   { ASSIGN }

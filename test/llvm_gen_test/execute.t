@@ -29,6 +29,8 @@
   Successfully executed ./map_set.hl
   2
   Successfully executed ./multiParam.hl
+  45
+  Successfully executed ./option.hl
   2
   Successfully executed ./pair1.hl
   12

@@ -22,17 +22,17 @@ else
 %token <string> IDENT
 %token TRUE FALSE UNIT
 %token IF THEN ELSE
-%token LET IN REC VAL DEFINITION COLON INTTYPE VOID PAIR FUN PRINT SEMICOLON LOC
+%token LET IN REC VAL DEFINITION COLON INTTYPE BOOLTYPE VOID PAIR FUN PRINT SEMICOLON LOC
 %token LAMBDA REF
 %token PLUS MINUS TIMES DIV QUOT REM
 %token EQ LT AND OR
-%token LPAREN RPAREN DOT COMMA FIRST SECOND BANG ASSIGN
+%token LPAREN RPAREN DOT COMMA FIRST SECOND BANG ASSIGN NONE NONEV SOME SOMEV
 %token EOF
 
 
 %nonassoc LOW_PRECEDENCE
 %left LOW_PRECEDENCE_LEFT
-%nonassoc UNIT TRUE FALSE SECOND REF LPAREN INT IDENT FIRST BANG
+%nonassoc UNIT TRUE FALSE SECOND REF LPAREN INT IDENT FIRST BANG SOME SOMEV
 %left SEMICOLON
 %nonassoc LOW_PRECEDENCE1
 %left ASSIGN
@@ -111,6 +111,7 @@ types:
 
 typ:
   | INTTYPE                     { TInt }
+  | BOOLTYPE                    { TBool}
   | VOID                        { TUnit }
   | IDENT                       { TVar $1}
   | PAIR LPAREN typ COMMA typ RPAREN  { TPair ($3, $5) }
@@ -130,6 +131,10 @@ atom:
   | LPAREN expr COMMA expr RPAREN  { Pair($2, $4) }
   | LPAREN expr RPAREN             { $2 }
   | FIRST expr  %prec LOW_PRECEDENCE                   { Fst $2 }
+  | LPAREN TIMES typ TIMES RPAREN NONE                 { Pair (Val (LitV (LitBool false)), Val (LitV (LitInt 0)) )  }
+  | SOME expr                                          { Pair (Val (LitV (LitBool true)), $2 )  }
+  | LPAREN TIMES typ TIMES RPAREN NONEV                { Pair (Val (LitV (LitBool false)), Val (LitV (LitInt 0)) )  }
+  | SOMEV expr                                         { Pair (Val (LitV (LitBool true)), $2 )  }
   | SECOND expr    %prec LOW_PRECEDENCE                { Snd $2 }
   | REF expr %prec LOW_PRECEDENCE                      { AllocN(Val (LitV (LitInt 1)), $2) }
   | BANG expr %prec LOW_PRECEDENCE                     { Load $2 }

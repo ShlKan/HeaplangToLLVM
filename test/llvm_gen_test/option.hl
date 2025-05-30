@@ -1,0 +1,10 @@
+(* opInt = (bool, int)  *)
+
+Definition f : val (* int, opInt *) :=
+rec: "f" "a" := SOME a.
+
+Definition main : val (* void, int *) :=
+rec: "main" "x" :=
+let: "a" := f #45 in
+print (Snd "a");;
+#0.
